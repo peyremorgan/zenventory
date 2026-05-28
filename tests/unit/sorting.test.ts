@@ -1,62 +1,115 @@
 import { describe, expect, it } from "vitest";
-import { canPlaceItem, pickItem, placeItem, progressLabel, type ShelfZone, type SortItem } from "../../src/sorting";
+import {
+  canPickChip,
+  canPlaceChip,
+  pickChip,
+  placeChip,
+  progressLabel,
+  type CaseColumn,
+  type Chip
+} from "../../src/sorting";
 
 describe("sorting rules", () => {
-  const shelf: ShelfZone = {
-    id: "shelf",
-    acceptsCategory: "alchemy"
+  const whiteColumn: CaseColumn = {
+    id: "column-white",
+    columnIndex: 0,
+    acceptsColor: "white"
   };
 
-  it("allows placing only when held and category matches", () => {
-    const item: SortItem = {
-      id: "book-1",
-      category: "alchemy",
+  const redColumn: CaseColumn = {
+    id: "column-red",
+    columnIndex: 2,
+    acceptsColor: "red"
+  };
+
+  it("allows picking chip only when hand is empty", () => {
+    const chip: Chip = {
+      id: "chip-white-0",
+      color: "white",
+      isHeld: false,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+
+    expect(canPickChip(chip, null)).toBe(true);
+  });
+
+  it("prevents picking when another chip is held", () => {
+    const chip: Chip = {
+      id: "chip-white-0",
+      color: "white",
+      isHeld: false,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+    const heldChip: Chip = {
+      id: "chip-red-0",
+      color: "red",
       isHeld: true,
-      isPlaced: false
+      isPlaced: false,
+      placedColumnIndex: null
     };
 
-    expect(canPlaceItem(item, shelf)).toBe(true);
+    expect(canPickChip(chip, heldChip)).toBe(false);
   });
 
-  it("does not allow placing when not held", () => {
-    const item: SortItem = {
-      id: "book-1",
-      category: "alchemy",
+  it("picking keeps already-placed chip unchanged", () => {
+    const chip: Chip = {
+      id: "chip-red-2",
+      color: "red",
       isHeld: false,
-      isPlaced: false
+      isPlaced: true,
+      placedColumnIndex: 2
     };
 
-    expect(canPlaceItem(item, shelf)).toBe(false);
+    expect(pickChip(chip, null)).toEqual(chip);
   });
 
-  it("picking keeps already-placed item unchanged", () => {
-    const item: SortItem = {
-      id: "book-1",
-      category: "alchemy",
-      isHeld: false,
-      isPlaced: true
-    };
-
-    expect(pickItem(item)).toEqual(item);
-  });
-
-  it("placing converts held unplaced item into placed and not held", () => {
-    const item: SortItem = {
-      id: "book-1",
-      category: "alchemy",
+  it("allows placement only when held and color matches column", () => {
+    const chip: Chip = {
+      id: "chip-red-1",
+      color: "red",
       isHeld: true,
-      isPlaced: false
+      isPlaced: false,
+      placedColumnIndex: null
     };
 
-    expect(placeItem(item, shelf)).toEqual({
-      ...item,
+    expect(canPlaceChip(chip, redColumn)).toBe(true);
+    expect(canPlaceChip(chip, whiteColumn)).toBe(false);
+  });
+
+  it("placing converts held chip to placed with column index", () => {
+    const chip: Chip = {
+      id: "chip-red-0",
+      color: "red",
+      isHeld: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+
+    expect(placeChip(chip, redColumn)).toEqual({
+      ...chip,
       isHeld: false,
-      isPlaced: true
+      isPlaced: true,
+      placedColumnIndex: 2
     });
   });
 
+  it("placing leaves chip unchanged when wrong column", () => {
+    const chip: Chip = {
+      id: "chip-black-0",
+      color: "black",
+      isHeld: false,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+
+    expect(placeChip(chip, whiteColumn)).toEqual(chip);
+  });
+
   it("progress label follows expected format", () => {
-    expect(progressLabel(0, 1)).toBe("0 / 1 sorted");
-    expect(progressLabel(1, 1)).toBe("1 / 1 sorted");
+    expect(progressLabel(0, 16)).toBe("0 / 16 sorted");
+    expect(progressLabel(8, 16)).toBe("8 / 16 sorted");
+    expect(progressLabel(16, 16)).toBe("16 / 16 sorted");
   });
 });
