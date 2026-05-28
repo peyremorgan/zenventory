@@ -16,6 +16,8 @@ test("test API enforces one-chip hold and correct-column placement", async ({ pa
       triggerPlaceColumn: (columnIndex: number) => boolean;
       firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
       getProgress: () => string;
+      getChipPositionY: (chipIndex: number) => number | null;
+      getStackCenterYForCount: (stackedCount: number) => number;
     };
     const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
     if (!api) {
@@ -29,13 +31,17 @@ test("test API enforces one-chip hold and correct-column placement", async ({ pa
     const blockedSecondPick = api.triggerPickChip(whiteChip);
     const wrongPlacement = api.triggerPlaceColumn(0);
     const correctPlacement = api.triggerPlaceColumn(2);
+    const placedY = api.getChipPositionY(redChip);
+    const expectedFirstStackY = api.getStackCenterYForCount(1);
 
     return {
       firstPick,
       blockedSecondPick,
       wrongPlacement,
       correctPlacement,
-      progress: api.getProgress()
+      progress: api.getProgress(),
+      placedY,
+      expectedFirstStackY
     };
   });
 
@@ -44,5 +50,6 @@ test("test API enforces one-chip hold and correct-column placement", async ({ pa
   expect(result.wrongPlacement).toBe(false);
   expect(result.correctPlacement).toBe(true);
   expect(result.progress).toBe("1 / 16 sorted");
+  expect(result.placedY).toBeCloseTo(result.expectedFirstStackY, 6);
   await expect(page.locator("#hud")).toHaveText("1 / 16 sorted");
 });
