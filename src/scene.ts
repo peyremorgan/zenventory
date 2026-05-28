@@ -76,12 +76,12 @@ export function setupScene(scene: Scene): RoomScene {
   table.receiveShadow = true;
   scene.add(table);
 
-  const rimHeight = 0.08;
+  const rimHeight = 0.12;
   const tableRim = new Mesh(
     new CylinderGeometry(3.05, 3.05, rimHeight, 48),
     new MeshStandardMaterial({ color: "#3d2f23", roughness: 0.7 })
   );
-  tableRim.position.set(0, tableHeight + rimHeight / 2, -2.5);
+  tableRim.position.set(0, tableHeight - tableCylinderHeight / 2 - rimHeight / 2 - 0.02, -2.5);
   scene.add(tableRim);
 
   const columns: CaseColumn[] = CHIP_COLOR_ORDER.map((acceptsColor, index) => ({
@@ -146,7 +146,7 @@ export function setupScene(scene: Scene): RoomScene {
     );
     chipMesh.position.set(
       Math.cos(angle) * ring,
-      tableSurfaceY + 0.08,
+      tableSurfaceY + CHIP_HEIGHT / 2 + 0.01,
       -2.5 + Math.sin(angle) * ring
     );
     scene.add(chipMesh);
