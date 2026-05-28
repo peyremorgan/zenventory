@@ -67,19 +67,21 @@ export function setupScene(scene: Scene): RoomScene {
   scene.add(backWall, frontWall, leftWall, rightWall);
 
   const tableHeight = 0.8;
+  const tableCylinderHeight = 0.22;
   const table = new Mesh(
-    new CylinderGeometry(2.9, 2.9, 0.22, 48),
+    new CylinderGeometry(2.9, 2.9, tableCylinderHeight, 48),
     new MeshStandardMaterial({ color: "#195f2d", roughness: 0.78 })
   );
-  table.position.set(0, tableHeight, -2.5);
+  table.position.set(0, tableHeight - tableCylinderHeight / 2, -2.5);
   table.receiveShadow = true;
   scene.add(table);
 
+  const rimHeight = 0.08;
   const tableRim = new Mesh(
-    new CylinderGeometry(3.05, 3.05, 0.08, 48),
+    new CylinderGeometry(3.05, 3.05, rimHeight, 48),
     new MeshStandardMaterial({ color: "#3d2f23", roughness: 0.7 })
   );
-  tableRim.position.set(0, tableHeight + 0.15, -2.5);
+  tableRim.position.set(0, tableHeight + rimHeight / 2, -2.5);
   scene.add(tableRim);
 
   const columns: CaseColumn[] = CHIP_COLOR_ORDER.map((acceptsColor, index) => ({
@@ -129,7 +131,7 @@ export function setupScene(scene: Scene): RoomScene {
 
   const chipMeshes: Mesh[] = [];
   const chipSpawnColors: ChipColor[] = [];
-  const tableSurfaceY = tableHeight + 0.11;
+  const tableSurfaceY = tableHeight;
   for (let index = 0; index < TOTAL_CHIPS; index += 1) {
     const color = CHIP_COLOR_ORDER[Math.floor(index / CHIPS_PER_COLOR)] as ChipColor;
     const ring = index % 2 === 0 ? 1.25 : 1.75;
