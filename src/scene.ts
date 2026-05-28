@@ -141,7 +141,6 @@ export function setupScene(scene: Scene): RoomScene {
         metalness: color === "black" ? 0.2 : 0.07
       })
     );
-    chipMesh.rotation.x = Math.PI / 2;
     chipMesh.position.set(
       Math.cos(angle) * ring,
       tableHeight + 0.14,

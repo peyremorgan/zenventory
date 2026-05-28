@@ -56,7 +56,7 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
     (placedChip) => placedChip.isPlaced && placedChip.placedColumnIndex === columnIndex
   ).length;
   const placedMesh = room.chipMeshes[chipIndex];
-  placedMesh.rotation.set(Math.PI / 2, 0, 0);
+  placedMesh.rotation.set(0, 0, 0);
   placedMesh.position.set(
     columnMesh.position.x,
     room.columnStackBaseY + (stackedCount - 1) * room.chipHeight,
