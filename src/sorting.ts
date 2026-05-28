@@ -1,41 +1,48 @@
-export type ItemCategory = "alchemy";
+export type ChipColor = "white" | "black" | "red" | "green";
 
-export interface SortItem {
+export interface Chip {
   id: string;
-  category: ItemCategory;
+  color: ChipColor;
   isPlaced: boolean;
   isHeld: boolean;
+  placedColumnIndex: number | null;
 }
 
-export interface ShelfZone {
+export interface CaseColumn {
   id: string;
-  acceptsCategory: ItemCategory;
+  columnIndex: number;
+  acceptsColor: ChipColor;
 }
 
-export function canPlaceItem(item: SortItem, shelf: ShelfZone): boolean {
-  return item.isHeld && !item.isPlaced && item.category === shelf.acceptsCategory;
+export function canPickChip(chip: Chip, heldChip: Chip | null): boolean {
+  return !chip.isPlaced && !chip.isHeld && heldChip === null;
 }
 
-export function pickItem(item: SortItem): SortItem {
-  if (item.isPlaced) {
-    return item;
+export function canPlaceChip(chip: Chip, column: CaseColumn): boolean {
+  return chip.isHeld && !chip.isPlaced && chip.color === column.acceptsColor;
+}
+
+export function pickChip(chip: Chip, heldChip: Chip | null): Chip {
+  if (!canPickChip(chip, heldChip)) {
+    return chip;
   }
 
   return {
-    ...item,
+    ...chip,
     isHeld: true
   };
 }
 
-export function placeItem(item: SortItem, shelf: ShelfZone): SortItem {
-  if (!canPlaceItem(item, shelf)) {
-    return item;
+export function placeChip(chip: Chip, column: CaseColumn): Chip {
+  if (!canPlaceChip(chip, column)) {
+    return chip;
   }
 
   return {
-    ...item,
+    ...chip,
     isHeld: false,
-    isPlaced: true
+    isPlaced: true,
+    placedColumnIndex: column.columnIndex
   };
 }
 
