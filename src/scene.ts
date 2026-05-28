@@ -129,6 +129,7 @@ export function setupScene(scene: Scene): RoomScene {
 
   const chipMeshes: Mesh[] = [];
   const chipSpawnColors: ChipColor[] = [];
+  const tableSurfaceY = tableHeight + 0.11;
   for (let index = 0; index < TOTAL_CHIPS; index += 1) {
     const color = CHIP_COLOR_ORDER[Math.floor(index / CHIPS_PER_COLOR)] as ChipColor;
     const ring = index % 2 === 0 ? 1.25 : 1.75;
@@ -143,7 +144,7 @@ export function setupScene(scene: Scene): RoomScene {
     );
     chipMesh.position.set(
       Math.cos(angle) * ring,
-      tableHeight + 0.14,
+      tableSurfaceY + 0.08,
       -2.5 + Math.sin(angle) * ring
     );
     scene.add(chipMesh);
