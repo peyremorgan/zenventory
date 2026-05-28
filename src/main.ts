@@ -3,6 +3,7 @@ import { createHud } from "./hud";
 import { createPlayer } from "./player";
 import { canPlaceChip, canPickChip, placeChip, pickChip, type Chip } from "./sorting";
 import { setupScene } from "./scene";
+import { stackChipCenterY } from "./stacking";
 
 const canvas = document.getElementById("game");
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -59,7 +60,7 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
   placedMesh.rotation.set(0, 0, 0);
   placedMesh.position.set(
     columnMesh.position.x,
-    room.columnStackBaseY + (stackedCount - 1) * room.chipHeight,
+    stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount),
     columnMesh.position.z
   );
   heldChipIndex = null;
@@ -177,7 +178,13 @@ if (typeof window !== "undefined") {
         }
       }
       return -1;
-    }
+    },
+    getChipPositionY: (chipIndex: number): number | null => {
+      const chipMesh = room.chipMeshes[chipIndex];
+      return chipMesh ? chipMesh.position.y : null;
+    },
+    getStackCenterYForCount: (stackedCount: number): number =>
+      stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount)
   };
 
   (window as unknown as { __zenventoryTestApi?: typeof testApi }).__zenventoryTestApi = testApi;
