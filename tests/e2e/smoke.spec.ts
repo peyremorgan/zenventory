@@ -9,6 +9,9 @@ test("poker scene boots with initial progress", async ({ page }) => {
 
 test("test API supports multi-chip hand, wheel-style rotation, and top-chip placement", async ({ page }) => {
   await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
 
   const result = await page.evaluate(() => {
     type TestApi = {
@@ -23,6 +26,7 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
       getProgress: () => string;
       getChipPositionY: (chipIndex: number) => number | null;
       getStackCenterYForCount: (stackedCount: number) => number;
+      isUsingExternalAssets: () => boolean;
     };
     const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
     if (!api) {
@@ -77,7 +81,8 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
       expectedFirstStackY,
       heldCountAfterPlacement,
       pickAfterPlacement,
-      heldCountAfterRepick
+      heldCountAfterRepick,
+      usingExternalAssets: api.isUsingExternalAssets()
     };
   });
 
@@ -104,11 +109,15 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
   expect(result.heldCountAfterPlacement).toBe(3);
   expect(result.pickAfterPlacement).toBe(true);
   expect(result.heldCountAfterRepick).toBe(4);
+  expect(result.usingExternalAssets).toBe(true);
   await expect(page.locator("#hud")).toHaveText("1 / 16 sorted");
 });
 
 test("test API clamps player movement to outer room walls", async ({ page }) => {
   await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
 
   const result = await page.evaluate(() => {
     type Bounds = {
@@ -155,6 +164,9 @@ test("test API clamps player movement to outer room walls", async ({ page }) => 
 
 test("held chip stays in front of wall surface when facing wall up close", async ({ page }) => {
   await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
 
   const result = await page.evaluate(() => {
     type Bounds = {
