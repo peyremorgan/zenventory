@@ -1,4 +1,5 @@
 import { Matrix3, Quaternion, Vector3 } from "three";
+import { CHIP_HALF_HEIGHT, CHIP_RADIUS } from "./chipMetrics";
 import type { RoomBounds } from "./roomBounds";
 
 export interface PhysicsEnvironment {
@@ -92,8 +93,8 @@ export function createChipRigidBody(position: Vector3, quaternion: Quaternion): 
     angularVelocity: new Vector3(),
     mass,
     inverseMass: 1 / mass,
-    radius: 0.17,
-    halfHeight: 0.03,
+    radius: CHIP_RADIUS,
+    halfHeight: CHIP_HALF_HEIGHT,
     restitution: 0.28,
     friction: 0.52,
     linearDamping: 0.8,

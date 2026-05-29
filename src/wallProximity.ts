@@ -5,11 +5,12 @@ import {
   toWallInnerBounds,
   type RoomBounds
 } from "./roomBounds";
+import { CHIP_RADIUS } from "./chipMetrics";
 
 const EPSILON = 1e-6;
 const FORWARD_ON_PLANE = new Vector3();
 
-export const HELD_CHIP_FORWARD_RADIUS = 0.17;
+export const HELD_CHIP_FORWARD_RADIUS = CHIP_RADIUS;
 export const HELD_WALL_CLEARANCE_MARGIN = 0.02;
 
 export function getDistanceToFacingWall(

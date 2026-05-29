@@ -20,6 +20,12 @@ import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { toWallInnerBounds } from "./roomBounds";
+import {
+  CHIP_HEIGHT,
+  CHIP_RADIUS,
+  CHIP_SPAWN_INNER_RING_RADIUS,
+  CHIP_SPAWN_OUTER_RING_RADIUS
+} from "./chipMetrics";
 import type { CaseColumn, ChipColor } from "./sorting";
 import type { PhysicsEnvironment } from "./physics";
 
@@ -51,8 +57,6 @@ const CHIP_COLOR_ORDER: ChipColor[] = ["white", "black", "red", "green"];
 
 const CHIPS_PER_COLOR = 4;
 const TOTAL_CHIPS = CHIP_COLOR_ORDER.length * CHIPS_PER_COLOR;
-export const CHIP_HEIGHT = 0.06;
-const CHIP_RADIUS = 0.17;
 const TABLE_TARGET_DIAMETER = 5.8;
 const TABLE_RADIUS = TABLE_TARGET_DIAMETER / 2;
 const TABLE_CENTER_X = 0;
@@ -416,14 +420,14 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
   const tableSurfaceY = tableHeight;
   for (let index = 0; index < TOTAL_CHIPS; index += 1) {
     const color = CHIP_COLOR_ORDER[Math.floor(index / CHIPS_PER_COLOR)] as ChipColor;
-    const ring = index % 2 === 0 ? 1.25 : 1.75;
+    const ring = index % 2 === 0 ? CHIP_SPAWN_INNER_RING_RADIUS : CHIP_SPAWN_OUTER_RING_RADIUS;
     const angle = index * ((Math.PI * 2) / TOTAL_CHIPS);
     const prototype = chipPrototypes[color];
     const chipMesh = new Mesh(prototype.geometry, prototype.material);
     chipMesh.position.set(
       Math.cos(angle) * ring,
       tableSurfaceY + CHIP_HEIGHT / 2 + 0.01,
-      -2.5 + Math.sin(angle) * ring
+      TABLE_CENTER_Z + Math.sin(angle) * ring
     );
     scene.add(chipMesh);
     chipMeshes.push(chipMesh);

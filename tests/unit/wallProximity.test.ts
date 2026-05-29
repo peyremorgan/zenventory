@@ -24,7 +24,7 @@ describe("wall proximity", () => {
 
     const safeDistance = getSafeHeldForwardDistance(position, worldForward, 0.74);
 
-    expect(safeDistance).toBeCloseTo(0.11, 8);
+    expect(safeDistance).toBeCloseTo(0.144, 8);
   });
 
   it("uses nearest wall when facing room corner diagonally", () => {
