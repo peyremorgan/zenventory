@@ -1,10 +1,11 @@
-import { Clock, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
+import { Clock, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
 import { createHud } from "./hud";
 import { applyMovementStep, createPlayer, type KeyState } from "./player";
-import { ROOM_BOUNDS, clampPositionToRoom } from "./roomBounds";
+import { ROOM_BOUNDS, clampPositionToRoom, toWallInnerBounds } from "./roomBounds";
 import { canPlaceChip, canPickChip, placeChip, pickChip, type Chip } from "./sorting";
 import { setupScene } from "./scene";
 import { stackChipCenterY } from "./stacking";
+import { damp, getSafeHeldForwardDistance, HELD_CHIP_FORWARD_RADIUS } from "./wallProximity";
 
 const canvas = document.getElementById("game");
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -37,7 +38,10 @@ const chips: Chip[] = room.chipSpawnColors.map((color, index) => ({
 
 let sortedCount = 0;
 let heldChipIndices: number[] = [];
+let heldForwardDistance = -room.holdOffset.z;
 hud.update(sortedCount);
+
+const worldForward = new Vector3();
 
 function getHeldChips(): Chip[] {
   return heldChipIndices
@@ -114,15 +118,27 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
   return true;
 }
 
-function updateHeldObjectPosition(): void {
+function updateHeldObjectPosition(delta: number): void {
   if (heldChipIndices.length === 0) {
+    heldForwardDistance = -room.holdOffset.z;
     return;
   }
+
+  camera.getWorldDirection(worldForward);
+  const targetForwardDistance = getSafeHeldForwardDistance(
+    camera.position,
+    worldForward,
+    -room.holdOffset.z
+  );
+
+  const safeDelta = Math.max(0, delta);
+  heldForwardDistance = damp(heldForwardDistance, targetForwardDistance, 18, safeDelta);
 
   heldChipIndices.forEach((chipIndex, stackIndex) => {
     const heldMesh = room.chipMeshes[chipIndex];
     const target = room.holdOffset.clone();
     target.y += stackIndex * room.chipHeight;
+    target.z = -heldForwardDistance;
     target.applyQuaternion(camera.quaternion);
     target.add(camera.position);
     heldMesh.position.copy(target);
@@ -295,7 +311,42 @@ if (typeof window !== "undefined") {
         z: camera.position.z
       };
     },
-    getRoomBounds: (): typeof ROOM_BOUNDS => ({ ...ROOM_BOUNDS })
+    getRoomBounds: (): typeof ROOM_BOUNDS => ({ ...ROOM_BOUNDS }),
+    getWallInnerBounds: (): typeof ROOM_BOUNDS => toWallInnerBounds(),
+    getHeldChipPosition: (): { x: number; y: number; z: number } | null => {
+      const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+      if (topChipIndex === undefined) {
+        return null;
+      }
+
+      const heldMesh = room.chipMeshes[topChipIndex];
+      return {
+        x: heldMesh.position.x,
+        y: heldMesh.position.y,
+        z: heldMesh.position.z
+      };
+    },
+    setCameraLookDirectionXZ: (x: number, z: number): void => {
+      const length = Math.hypot(x, z);
+      if (length === 0) {
+        return;
+      }
+
+      camera.lookAt(
+        camera.position.x + x / length,
+        camera.position.y,
+        camera.position.z + z / length
+      );
+    },
+    stepSimulation: (delta: number, steps: number): void => {
+      const safeDelta = Math.max(0, delta);
+      const safeSteps = Math.max(0, Math.floor(steps));
+      for (let index = 0; index < safeSteps; index += 1) {
+        player.move(safeDelta);
+        updateHeldObjectPosition(safeDelta);
+      }
+    },
+    getHeldChipForwardRadius: (): number => HELD_CHIP_FORWARD_RADIUS
   };
 
   (window as unknown as { __zenventoryTestApi?: typeof testApi }).__zenventoryTestApi = testApi;
@@ -304,7 +355,7 @@ if (typeof window !== "undefined") {
 function renderLoop(): void {
   const delta = clock.getDelta();
   player.move(delta);
-  updateHeldObjectPosition();
+  updateHeldObjectPosition(delta);
   renderer.render(scene, camera);
 }
 

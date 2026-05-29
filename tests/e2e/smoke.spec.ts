@@ -152,3 +152,60 @@ test("test API clamps player movement to outer room walls", async ({ page }) => 
   expect(result.rightWall.x).toBe(result.bounds.maxX);
   expect(result.backWall.z).toBe(result.bounds.minZ);
 });
+
+test("held chip stays in front of wall surface when facing wall up close", async ({ page }) => {
+  await page.goto("/");
+
+  const result = await page.evaluate(() => {
+    type Bounds = {
+      minX: number;
+      maxX: number;
+      minZ: number;
+      maxZ: number;
+    };
+    type Position = {
+      x: number;
+      y: number;
+      z: number;
+    };
+    type TestApi = {
+      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      triggerPickChip: (chipIndex: number) => boolean;
+      setCameraPositionXZ: (x: number, z: number) => { x: number; z: number };
+      setCameraLookDirectionXZ: (x: number, z: number) => void;
+      stepSimulation: (delta: number, steps: number) => void;
+      getHeldChipPosition: () => Position | null;
+      getWallInnerBounds: () => Bounds;
+      getHeldChipForwardRadius: () => number;
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const chipIndex = api.firstUnplacedChipByColor("white");
+    const picked = api.triggerPickChip(chipIndex);
+    if (!picked) {
+      throw new Error("Failed to pick chip for clipping test");
+    }
+
+    const walls = api.getWallInnerBounds();
+    api.setCameraPositionXZ(walls.maxX - 0.3, 0);
+    api.setCameraLookDirectionXZ(1, 0);
+    api.stepSimulation(1 / 60, 120);
+
+    const held = api.getHeldChipPosition();
+    if (!held) {
+      throw new Error("Missing held chip position");
+    }
+
+    return {
+      held,
+      walls,
+      radius: api.getHeldChipForwardRadius()
+    };
+  });
+
+  expect(result.held.x + result.radius).toBeLessThanOrEqual(result.walls.maxX - 0.01);
+});
