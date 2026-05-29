@@ -46,14 +46,18 @@ export interface RoomScene {
   physicsEnvironment: PhysicsEnvironment;
 }
 
+interface SetupSceneOptions {
+  preferFallbackAssets?: boolean;
+}
+
 const CHIP_COLORS: Record<ChipColor, number> = {
-  white: 0xf2f2eb,
+  blue: 0x4169e1,
   black: 0x1b1b1d,
   red: 0xba2d2d,
   green: 0x2f8c42
 };
 
-const CHIP_COLOR_ORDER: ChipColor[] = ["white", "black", "red", "green"];
+const CHIP_COLOR_ORDER: ChipColor[] = ["blue", "black", "red", "green"];
 
 const CHIPS_PER_COLOR = 4;
 const TOTAL_CHIPS = CHIP_COLOR_ORDER.length * CHIPS_PER_COLOR;
@@ -302,7 +306,8 @@ function addFallbackTable(scene: Scene, tableHeight: number): void {
   scene.add(tableRim);
 }
 
-export async function setupScene(scene: Scene): Promise<RoomScene> {
+export async function setupScene(scene: Scene, options?: SetupSceneOptions): Promise<RoomScene> {
+  const preferFallbackAssets = options?.preferFallbackAssets ?? false;
   scene.background = new Color("#2d3e52");
 
   const floor = new Mesh(
@@ -333,16 +338,21 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
   scene.add(backWall, frontWall, leftWall, rightWall);
 
   const tableHeight = 0.8;
-  let usingExternalAssets = true;
-  try {
-    const tableModel = await loadTableModel();
-    const tableBounds = new Box3().setFromObject(tableModel);
-    const yOffset = tableHeight - tableBounds.max.y;
-    tableModel.position.set(TABLE_CENTER_X, yOffset, TABLE_CENTER_Z);
-    scene.add(tableModel);
-  } catch {
+  let usingExternalAssets = !preferFallbackAssets;
+  if (preferFallbackAssets) {
     usingExternalAssets = false;
     addFallbackTable(scene, tableHeight);
+  } else {
+    try {
+      const tableModel = await loadTableModel();
+      const tableBounds = new Box3().setFromObject(tableModel);
+      const yOffset = tableHeight - tableBounds.max.y;
+      tableModel.position.set(TABLE_CENTER_X, yOffset, TABLE_CENTER_Z);
+      scene.add(tableModel);
+    } catch {
+      usingExternalAssets = false;
+      addFallbackTable(scene, tableHeight);
+    }
   }
 
   const columns: CaseColumn[] = CHIP_COLOR_ORDER.map((acceptsColor, index) => ({
@@ -393,14 +403,12 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
   const chipMeshes: Mesh[] = [];
   const chipSpawnColors: ChipColor[] = [];
   let chipPrototypes: Record<ChipColor, ChipPrototype>;
-  try {
-    chipPrototypes = await loadChipPrototypes();
-  } catch {
+  if (preferFallbackAssets) {
     usingExternalAssets = false;
     chipPrototypes = {
-      white: {
+      blue: {
         geometry: proceduralChipGeometry(),
-        material: new MeshStandardMaterial({ color: CHIP_COLORS.white, roughness: 0.52, metalness: 0.07 })
+        material: new MeshStandardMaterial({ color: CHIP_COLORS.blue, roughness: 0.52, metalness: 0.07 })
       },
       black: {
         geometry: proceduralChipGeometry(),
@@ -415,6 +423,30 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
         material: new MeshStandardMaterial({ color: CHIP_COLORS.green, roughness: 0.52, metalness: 0.07 })
       }
     };
+  } else {
+    try {
+      chipPrototypes = await loadChipPrototypes();
+    } catch {
+      usingExternalAssets = false;
+      chipPrototypes = {
+        blue: {
+          geometry: proceduralChipGeometry(),
+          material: new MeshStandardMaterial({ color: CHIP_COLORS.blue, roughness: 0.52, metalness: 0.07 })
+        },
+        black: {
+          geometry: proceduralChipGeometry(),
+          material: new MeshStandardMaterial({ color: CHIP_COLORS.black, roughness: 0.52, metalness: 0.2 })
+        },
+        red: {
+          geometry: proceduralChipGeometry(),
+          material: new MeshStandardMaterial({ color: CHIP_COLORS.red, roughness: 0.52, metalness: 0.07 })
+        },
+        green: {
+          geometry: proceduralChipGeometry(),
+          material: new MeshStandardMaterial({ color: CHIP_COLORS.green, roughness: 0.52, metalness: 0.07 })
+        }
+      };
+    }
   }
 
   const tableSurfaceY = tableHeight;

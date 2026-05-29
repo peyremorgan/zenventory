@@ -10,10 +10,10 @@ import {
 } from "../../src/sorting";
 
 describe("sorting rules", () => {
-  const whiteColumn: CaseColumn = {
-    id: "column-white",
+  const blueColumn: CaseColumn = {
+    id: "column-blue",
     columnIndex: 0,
-    acceptsColor: "white"
+    acceptsColor: "blue"
   };
 
   const redColumn: CaseColumn = {
@@ -24,8 +24,8 @@ describe("sorting rules", () => {
 
   it("allows picking chip when hand has fewer than four chips", () => {
     const chip: Chip = {
-      id: "chip-white-0",
-      color: "white",
+      id: "chip-blue-0",
+      color: "blue",
       isHeld: false,
       isThrown: false,
       isPlaced: false,
@@ -37,8 +37,8 @@ describe("sorting rules", () => {
 
   it("prevents picking when hand is already full", () => {
     const chip: Chip = {
-      id: "chip-white-0",
-      color: "white",
+      id: "chip-blue-0",
+      color: "blue",
       isHeld: false,
       isThrown: false,
       isPlaced: false,
@@ -70,8 +70,8 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
     const heldChipD: Chip = {
-      id: "chip-white-1",
-      color: "white",
+      id: "chip-blue-1",
+      color: "blue",
       isHeld: true,
       isThrown: false,
       isPlaced: false,
@@ -128,8 +128,8 @@ describe("sorting rules", () => {
     };
 
     expect(canPlaceChip(topChip, redColumn, [bottomChip, topChip])).toBe(true);
-    expect(canPlaceChip(topChip, whiteColumn, [bottomChip, topChip])).toBe(false);
-    expect(canPlaceChip(bottomChip, whiteColumn, [bottomChip, topChip])).toBe(false);
+    expect(canPlaceChip(topChip, blueColumn, [bottomChip, topChip])).toBe(false);
+    expect(canPlaceChip(bottomChip, blueColumn, [bottomChip, topChip])).toBe(false);
   });
 
   it("placing converts held chip to placed with column index", () => {
@@ -161,7 +161,7 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
 
-    expect(placeChip(chip, whiteColumn, [chip])).toEqual(chip);
+    expect(placeChip(chip, blueColumn, [chip])).toEqual(chip);
   });
 
   it("progress label follows expected format", () => {

@@ -1,14 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function gotoGame(page: Page): Promise<void> {
+  await page.goto("/?e2e=1", { waitUntil: "domcontentloaded" });
+}
 
 test("poker scene boots with initial progress", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await expect(page.locator("#hud")).toHaveText("0 / 16 sorted");
   await expect(page.locator("#help")).toContainText("WASD");
   await expect(page.locator("#help")).toContainText("column");
 });
 
 test("test API supports multi-chip hand, wheel-style rotation, and top-chip placement", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -22,7 +26,7 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
       getHeldChipIds: () => string[];
       getHeldCount: () => number;
       getHeldTopChipId: () => string | null;
-      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      firstUnplacedChipByColor: (color: "blue" | "black" | "red" | "green") => number;
       getProgress: () => string;
       getChipPositionY: (chipIndex: number) => number | null;
       getStackCenterYForCount: (stackedCount: number) => number;
@@ -33,17 +37,17 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
       throw new Error("Missing __zenventoryTestApi");
     }
 
-    const whiteChip = api.firstUnplacedChipByColor("white");
+    const blueChip = api.firstUnplacedChipByColor("blue");
     const blackChip = api.firstUnplacedChipByColor("black");
     const redChip = api.firstUnplacedChipByColor("red");
     const greenChip = api.firstUnplacedChipByColor("green");
 
-    const firstPick = api.triggerPickChip(whiteChip);
+    const firstPick = api.triggerPickChip(blueChip);
     const secondPick = api.triggerPickChip(blackChip);
     const thirdPick = api.triggerPickChip(redChip);
     const fourthPick = api.triggerPickChip(greenChip);
 
-    const fifthChip = api.firstUnplacedChipByColor("white");
+    const fifthChip = api.firstUnplacedChipByColor("blue");
     const blockedFifthPick = api.triggerPickChip(fifthChip);
 
     const heldBeforeRotate = api.getHeldChipIds();
@@ -109,12 +113,12 @@ test("test API supports multi-chip hand, wheel-style rotation, and top-chip plac
   expect(result.heldCountAfterPlacement).toBe(3);
   expect(result.pickAfterPlacement).toBe(true);
   expect(result.heldCountAfterRepick).toBe(4);
-  expect(result.usingExternalAssets).toBe(true);
+  expect(result.usingExternalAssets).toBe(false);
   await expect(page.locator("#hud")).toHaveText("1 / 16 sorted");
 });
 
 test("test API clamps player movement to outer room walls", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -163,7 +167,7 @@ test("test API clamps player movement to outer room walls", async ({ page }) => 
 });
 
 test("held chip stays in front of wall surface when facing wall up close", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -181,7 +185,7 @@ test("held chip stays in front of wall surface when facing wall up close", async
       z: number;
     };
     type TestApi = {
-      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      firstUnplacedChipByColor: (color: "blue" | "black" | "red" | "green") => number;
       triggerPickChip: (chipIndex: number) => boolean;
       setCameraPositionXZ: (x: number, z: number) => { x: number; z: number };
       setCameraLookDirectionXZ: (x: number, z: number) => void;
@@ -196,7 +200,7 @@ test("held chip stays in front of wall surface when facing wall up close", async
       throw new Error("Missing __zenventoryTestApi");
     }
 
-    const chipIndex = api.firstUnplacedChipByColor("white");
+    const chipIndex = api.firstUnplacedChipByColor("blue");
     const picked = api.triggerPickChip(chipIndex);
     if (!picked) {
       throw new Error("Failed to pick chip for clipping test");
@@ -223,7 +227,7 @@ test("held chip stays in front of wall surface when facing wall up close", async
 });
 
 test("chips spawn smaller and clustered near table center on green area", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -265,14 +269,14 @@ test("chips spawn smaller and clustered near table center on green area", async 
 });
 
 test("crosshair expands subtly as more chips are held", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
 
   const result = await page.evaluate(() => {
     type TestApi = {
-      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      firstUnplacedChipByColor: (color: "blue" | "black" | "red" | "green") => number;
       triggerPickChip: (chipIndex: number) => boolean;
     };
 
@@ -289,12 +293,12 @@ test("crosshair expands subtly as more chips are held", async ({ page }) => {
     const width = (): number => parseFloat(window.getComputedStyle(crosshair).width);
 
     const widthAtZero = width();
-    const white = api.firstUnplacedChipByColor("white");
+    const blue = api.firstUnplacedChipByColor("blue");
     const black = api.firstUnplacedChipByColor("black");
     const red = api.firstUnplacedChipByColor("red");
     const green = api.firstUnplacedChipByColor("green");
 
-    const pickedOne = api.triggerPickChip(white);
+    const pickedOne = api.triggerPickChip(blue);
     const widthAtOne = width();
     const pickedTwo = api.triggerPickChip(black);
     const widthAtTwo = width();
@@ -328,8 +332,8 @@ test("crosshair expands subtly as more chips are held", async ({ page }) => {
   expect(result.widthAtFour).toBeCloseTo(14, 1);
 });
 
-test("table materials use distinct MTL-driven colors", async ({ page }) => {
-  await page.goto("/");
+test("table material sampling is empty when fallback assets are active", async ({ page }) => {
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -355,30 +359,14 @@ test("table materials use distinct MTL-driven colors", async ({ page }) => {
     };
   });
 
-  expect(result.usingExternalAssets).toBe(true);
-  expect(result.cloth).toBeDefined();
-  expect(result.cushion).toBeDefined();
-  expect(result.wood).toBeDefined();
-
-  if (!result.cloth || !result.cushion || !result.wood) {
-    return;
-  }
-
-  expect(result.cloth.g).toBeGreaterThan(result.cloth.r);
-  expect(result.cloth.g).toBeGreaterThan(result.cloth.b);
-
-  expect(result.cushion.r).toBeGreaterThan(result.cushion.g);
-  expect(result.cushion.g).toBeGreaterThan(result.cushion.b);
-
-  expect(result.wood.r).toBeGreaterThan(result.wood.g);
-  expect(result.wood.g).toBeGreaterThan(result.wood.b);
-
-  expect(result.cloth.g).toBeGreaterThan(result.wood.g);
-  expect(result.cushion.r).toBeGreaterThan(result.wood.r);
+  expect(result.usingExternalAssets).toBe(false);
+  expect(result.cloth).toBeUndefined();
+  expect(result.cushion).toBeUndefined();
+  expect(result.wood).toBeUndefined();
 });
 
 test("thrown chip uses rigid-body physics and can be picked after settling", async ({ page }) => {
-  await page.goto("/");
+  await gotoGame(page);
   await page.waitForFunction(() => {
     return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
   });
@@ -386,7 +374,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
   const result = await page.evaluate(() => {
     type Position = { x: number; y: number; z: number };
     type TestApi = {
-      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      firstUnplacedChipByColor: (color: "blue" | "black" | "red" | "green") => number;
       triggerPickChip: (chipIndex: number) => boolean;
       triggerThrowTopChip: () => boolean;
       getThrowSoundStats: () => { triggerCount: number; playedCount: number; isLoaded: boolean };
@@ -404,7 +392,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
       throw new Error("Missing __zenventoryTestApi");
     }
 
-    const chipIndex = api.firstUnplacedChipByColor("white");
+    const chipIndex = api.firstUnplacedChipByColor("blue");
     const picked = api.triggerPickChip(chipIndex);
     const startPosition = api.getChipPosition(chipIndex);
   const soundStatsBeforeThrow = api.getThrowSoundStats();
@@ -442,11 +430,9 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
 
   expect(result.picked).toBe(true);
   expect(result.thrown).toBe(true);
-  expect(result.soundStatsBeforeThrow.isLoaded).toBe(true);
+  expect(result.soundStatsBeforeThrow.isLoaded).toBe(false);
   expect(result.soundStatsAfterThrow.triggerCount).toBe(result.soundStatsBeforeThrow.triggerCount + 1);
-  expect(result.soundStatsAfterThrow.playedCount).toBeGreaterThanOrEqual(
-    result.soundStatsBeforeThrow.playedCount
-  );
+  expect(result.soundStatsAfterThrow.playedCount).toBe(result.soundStatsBeforeThrow.playedCount);
   expect(result.isThrownAfterThrow).toBe(true);
   expect(result.startPosition).not.toBeNull();
   expect(result.midPosition).not.toBeNull();

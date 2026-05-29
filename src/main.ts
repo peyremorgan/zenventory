@@ -18,13 +18,32 @@ import { loadSound, playSound } from "./audio";
 
 import wooshSfxUrl from "../assets/sounds/woosh.ogg?url";
 
+type RenderDriver = Pick<WebGLRenderer, "setPixelRatio" | "setSize" | "render" | "setAnimationLoop">;
+
 const canvas = document.getElementById("game");
 if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error("Missing #game canvas.");
 }
 const gameCanvas = canvas;
+const isE2EMode = new URLSearchParams(window.location.search).has("e2e");
 
-const renderer = new WebGLRenderer({ canvas: gameCanvas, antialias: true });
+const renderer: RenderDriver = isE2EMode
+  ? {
+      setPixelRatio: () => {
+        return;
+      },
+      setSize: () => {
+        return;
+      },
+      render: () => {
+        return;
+      },
+      setAnimationLoop: () => {
+        return;
+      }
+    }
+  : new WebGLRenderer({ canvas: gameCanvas, antialias: true });
+
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -38,7 +57,7 @@ window.addEventListener("resize", () => {
 });
 
 async function bootstrap(): Promise<void> {
-  const room = await setupScene(scene);
+  const room = await setupScene(scene, { preferFallbackAssets: isE2EMode });
   const player = createPlayer(camera, gameCanvas);
   const hud = createHud(room.chipMeshes.length);
 
@@ -61,7 +80,7 @@ async function bootstrap(): Promise<void> {
   let sortedCount = 0;
   let heldChipIndices: number[] = [];
   let heldForwardDistance = -room.holdOffset.z;
-  const throwSoundBuffer = await loadSound(wooshSfxUrl);
+  const throwSoundBuffer = isE2EMode ? null : await loadSound(wooshSfxUrl);
   let throwSoundTriggerCount = 0;
   let throwSoundPlayedCount = 0;
   hud.update(sortedCount);

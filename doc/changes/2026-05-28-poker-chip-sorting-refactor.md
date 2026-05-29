@@ -5,7 +5,7 @@ Replaced the single-item book/shelf prototype with a full poker-chip sorting loo
 ## What Changed
 
 - Reworked gameplay state from one `alchemy` item into typed poker entities:
-  - `ChipColor` union: `white | black | red | green`
+  - `ChipColor` union: `blue | black | red | green`
   - `Chip` with held/placed state and persisted target column index
   - `CaseColumn` with accepted chip color
 - Added rule helpers for explicit constraints:
