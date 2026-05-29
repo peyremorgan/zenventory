@@ -20,6 +20,7 @@ export const ROOM_BOUNDS: RoomBounds = {
   maxZ: WALKABLE_LIMIT
 };
 
+// Player movement is constrained on the horizontal plane; camera height is managed elsewhere.
 export function clampPositionToRoom(position: Vector3, bounds: RoomBounds = ROOM_BOUNDS): void {
   position.x = clamp(position.x, bounds.minX, bounds.maxX);
   position.z = clamp(position.z, bounds.minZ, bounds.maxZ);
