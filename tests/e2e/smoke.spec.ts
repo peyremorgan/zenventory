@@ -7,13 +7,18 @@ test("poker scene boots with initial progress", async ({ page }) => {
   await expect(page.locator("#help")).toContainText("column");
 });
 
-test("test API enforces one-chip hold and correct-column placement", async ({ page }) => {
+test("test API supports multi-chip hand, wheel-style rotation, and top-chip placement", async ({ page }) => {
   await page.goto("/");
 
   const result = await page.evaluate(() => {
     type TestApi = {
       triggerPickChip: (chipIndex: number) => boolean;
       triggerPlaceColumn: (columnIndex: number) => boolean;
+      triggerRotateUp: () => boolean;
+      triggerRotateDown: () => boolean;
+      getHeldChipIds: () => string[];
+      getHeldCount: () => number;
+      getHeldTopChipId: () => string | null;
       firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
       getProgress: () => string;
       getChipPositionY: (chipIndex: number) => number | null;
@@ -24,33 +29,81 @@ test("test API enforces one-chip hold and correct-column placement", async ({ pa
       throw new Error("Missing __zenventoryTestApi");
     }
 
-    const redChip = api.firstUnplacedChipByColor("red");
     const whiteChip = api.firstUnplacedChipByColor("white");
+    const blackChip = api.firstUnplacedChipByColor("black");
+    const redChip = api.firstUnplacedChipByColor("red");
+    const greenChip = api.firstUnplacedChipByColor("green");
 
-    const firstPick = api.triggerPickChip(redChip);
-    const blockedSecondPick = api.triggerPickChip(whiteChip);
-    const wrongPlacement = api.triggerPlaceColumn(0);
-    const correctPlacement = api.triggerPlaceColumn(2);
-    const placedY = api.getChipPositionY(redChip);
+    const firstPick = api.triggerPickChip(whiteChip);
+    const secondPick = api.triggerPickChip(blackChip);
+    const thirdPick = api.triggerPickChip(redChip);
+    const fourthPick = api.triggerPickChip(greenChip);
+
+    const fifthChip = api.firstUnplacedChipByColor("white");
+    const blockedFifthPick = api.triggerPickChip(fifthChip);
+
+    const heldBeforeRotate = api.getHeldChipIds();
+    const rotateUp = api.triggerRotateUp();
+    const heldAfterRotateUp = api.getHeldChipIds();
+    const rotateDown = api.triggerRotateDown();
+    const heldAfterRotateDown = api.getHeldChipIds();
+    const topChipAfterRotation = api.getHeldTopChipId();
+
+    const wrongPlacement = api.triggerPlaceColumn(2);
+    const correctPlacement = api.triggerPlaceColumn(3);
+    const placedY = api.getChipPositionY(greenChip);
     const expectedFirstStackY = api.getStackCenterYForCount(1);
+    const heldCountAfterPlacement = api.getHeldCount();
+
+    const pickAfterPlacement = api.triggerPickChip(fifthChip);
+    const heldCountAfterRepick = api.getHeldCount();
 
     return {
       firstPick,
-      blockedSecondPick,
+      secondPick,
+      thirdPick,
+      fourthPick,
+      blockedFifthPick,
+      heldBeforeRotate,
+      rotateUp,
+      heldAfterRotateUp,
+      rotateDown,
+      heldAfterRotateDown,
+      topChipAfterRotation,
       wrongPlacement,
       correctPlacement,
       progress: api.getProgress(),
       placedY,
-      expectedFirstStackY
+      expectedFirstStackY,
+      heldCountAfterPlacement,
+      pickAfterPlacement,
+      heldCountAfterRepick
     };
   });
 
   expect(result.firstPick).toBe(true);
-  expect(result.blockedSecondPick).toBe(false);
+  expect(result.secondPick).toBe(true);
+  expect(result.thirdPick).toBe(true);
+  expect(result.fourthPick).toBe(true);
+  expect(result.blockedFifthPick).toBe(false);
+  expect(result.heldBeforeRotate).toHaveLength(4);
+  expect(result.rotateUp).toBe(true);
+  expect(result.heldAfterRotateUp).toEqual([
+    result.heldBeforeRotate[3],
+    result.heldBeforeRotate[0],
+    result.heldBeforeRotate[1],
+    result.heldBeforeRotate[2]
+  ]);
+  expect(result.rotateDown).toBe(true);
+  expect(result.heldAfterRotateDown).toEqual(result.heldBeforeRotate);
+  expect(result.topChipAfterRotation).toBe(result.heldBeforeRotate[3]);
   expect(result.wrongPlacement).toBe(false);
   expect(result.correctPlacement).toBe(true);
   expect(result.progress).toBe("1 / 16 sorted");
   expect(result.placedY).toBeCloseTo(result.expectedFirstStackY, 6);
+  expect(result.heldCountAfterPlacement).toBe(3);
+  expect(result.pickAfterPlacement).toBe(true);
+  expect(result.heldCountAfterRepick).toBe(4);
   await expect(page.locator("#hud")).toHaveText("1 / 16 sorted");
 });
 

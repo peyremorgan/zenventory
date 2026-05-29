@@ -22,7 +22,7 @@ describe("sorting rules", () => {
     acceptsColor: "red"
   };
 
-  it("allows picking chip only when hand is empty", () => {
+  it("allows picking chip when hand has fewer than four chips", () => {
     const chip: Chip = {
       id: "chip-white-0",
       color: "white",
@@ -31,10 +31,10 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
 
-    expect(canPickChip(chip, null)).toBe(true);
+    expect(canPickChip(chip, [])).toBe(true);
   });
 
-  it("prevents picking when another chip is held", () => {
+  it("prevents picking when hand is already full", () => {
     const chip: Chip = {
       id: "chip-white-0",
       color: "white",
@@ -42,15 +42,37 @@ describe("sorting rules", () => {
       isPlaced: false,
       placedColumnIndex: null
     };
-    const heldChip: Chip = {
+
+    const heldChipA: Chip = {
       id: "chip-red-0",
       color: "red",
       isHeld: true,
       isPlaced: false,
       placedColumnIndex: null
     };
+    const heldChipB: Chip = {
+      id: "chip-black-0",
+      color: "black",
+      isHeld: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+    const heldChipC: Chip = {
+      id: "chip-green-0",
+      color: "green",
+      isHeld: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+    const heldChipD: Chip = {
+      id: "chip-white-1",
+      color: "white",
+      isHeld: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
 
-    expect(canPickChip(chip, heldChip)).toBe(false);
+    expect(canPickChip(chip, [heldChipA, heldChipB, heldChipC, heldChipD])).toBe(false);
   });
 
   it("picking keeps already-placed chip unchanged", () => {
@@ -62,11 +84,19 @@ describe("sorting rules", () => {
       placedColumnIndex: 2
     };
 
-    expect(pickChip(chip, null)).toEqual(chip);
+    expect(pickChip(chip, [])).toEqual(chip);
   });
 
-  it("allows placement only when held and color matches column", () => {
-    const chip: Chip = {
+  it("allows placement only when held, top of stack, and color matches column", () => {
+    const bottomChip: Chip = {
+      id: "chip-black-1",
+      color: "black",
+      isHeld: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+
+    const topChip: Chip = {
       id: "chip-red-1",
       color: "red",
       isHeld: true,
@@ -74,8 +104,9 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
 
-    expect(canPlaceChip(chip, redColumn)).toBe(true);
-    expect(canPlaceChip(chip, whiteColumn)).toBe(false);
+    expect(canPlaceChip(topChip, redColumn, [bottomChip, topChip])).toBe(true);
+    expect(canPlaceChip(topChip, whiteColumn, [bottomChip, topChip])).toBe(false);
+    expect(canPlaceChip(bottomChip, whiteColumn, [bottomChip, topChip])).toBe(false);
   });
 
   it("placing converts held chip to placed with column index", () => {
@@ -87,7 +118,7 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
 
-    expect(placeChip(chip, redColumn)).toEqual({
+    expect(placeChip(chip, redColumn, [chip])).toEqual({
       ...chip,
       isHeld: false,
       isPlaced: true,
@@ -104,7 +135,7 @@ describe("sorting rules", () => {
       placedColumnIndex: null
     };
 
-    expect(placeChip(chip, whiteColumn)).toEqual(chip);
+    expect(placeChip(chip, whiteColumn, [chip])).toEqual(chip);
   });
 
   it("progress label follows expected format", () => {

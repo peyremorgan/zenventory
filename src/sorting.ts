@@ -14,16 +14,22 @@ export interface CaseColumn {
   acceptsColor: ChipColor;
 }
 
-export function canPickChip(chip: Chip, heldChip: Chip | null): boolean {
-  return !chip.isPlaced && !chip.isHeld && heldChip === null;
+export function canPickChip(chip: Chip, heldChips: Chip[]): boolean {
+  return !chip.isPlaced && !chip.isHeld && heldChips.length < 4;
 }
 
-export function canPlaceChip(chip: Chip, column: CaseColumn): boolean {
-  return chip.isHeld && !chip.isPlaced && chip.color === column.acceptsColor;
+export function canPlaceChip(chip: Chip, column: CaseColumn, heldChips: Chip[]): boolean {
+  const topHeldChip = heldChips[heldChips.length - 1];
+  return (
+    chip.isHeld &&
+    !chip.isPlaced &&
+    chip.color === column.acceptsColor &&
+    topHeldChip?.id === chip.id
+  );
 }
 
-export function pickChip(chip: Chip, heldChip: Chip | null): Chip {
-  if (!canPickChip(chip, heldChip)) {
+export function pickChip(chip: Chip, heldChips: Chip[]): Chip {
+  if (!canPickChip(chip, heldChips)) {
     return chip;
   }
 
@@ -33,8 +39,8 @@ export function pickChip(chip: Chip, heldChip: Chip | null): Chip {
   };
 }
 
-export function placeChip(chip: Chip, column: CaseColumn): Chip {
-  if (!canPlaceChip(chip, column)) {
+export function placeChip(chip: Chip, column: CaseColumn, heldChips: Chip[]): Chip {
+  if (!canPlaceChip(chip, column, heldChips)) {
     return chip;
   }
 

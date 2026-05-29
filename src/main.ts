@@ -36,8 +36,42 @@ const chips: Chip[] = room.chipSpawnColors.map((color, index) => ({
 }));
 
 let sortedCount = 0;
-let heldChipIndex: number | null = null;
+let heldChipIndices: number[] = [];
 hud.update(sortedCount);
+
+function getHeldChips(): Chip[] {
+  return heldChipIndices
+    .map((chipIndex) => chips[chipIndex])
+    .filter((chip): chip is Chip => chip !== undefined);
+}
+
+function rotateHeldChipsUp(): boolean {
+  if (heldChipIndices.length < 2) {
+    return false;
+  }
+
+  const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+  if (topChipIndex === undefined) {
+    return false;
+  }
+
+  heldChipIndices = [topChipIndex, ...heldChipIndices.slice(0, -1)];
+  return true;
+}
+
+function rotateHeldChipsDown(): boolean {
+  if (heldChipIndices.length < 2) {
+    return false;
+  }
+
+  const [bottomChipIndex, ...remainingChipIndices] = heldChipIndices;
+  if (bottomChipIndex === undefined) {
+    return false;
+  }
+
+  heldChipIndices = [...remainingChipIndices, bottomChipIndex];
+  return true;
+}
 
 function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolean {
   const chip = chips[chipIndex];
@@ -48,8 +82,14 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
   }
 
   const wasPlaced = chip.isPlaced;
-  const next = placeChip(chip, column);
-  if (!canPlaceChip(chip, column) || next === chip) {
+  const heldChips = getHeldChips();
+  const next = placeChip(chip, column, heldChips);
+  if (!canPlaceChip(chip, column, heldChips) || next === chip) {
+    return false;
+  }
+
+  const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+  if (topChipIndex !== chipIndex) {
     return false;
   }
 
@@ -64,7 +104,7 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
     stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount),
     columnMesh.position.z
   );
-  heldChipIndex = null;
+  heldChipIndices = heldChipIndices.slice(0, -1);
 
   if (!wasPlaced) {
     sortedCount += 1;
@@ -75,65 +115,88 @@ function placeHeldChipIntoColumn(chipIndex: number, columnIndex: number): boolea
 }
 
 function updateHeldObjectPosition(): void {
-  if (heldChipIndex === null) {
+  if (heldChipIndices.length === 0) {
     return;
   }
 
-  const heldMesh = room.chipMeshes[heldChipIndex];
-  const target = room.holdOffset.clone();
-  target.applyQuaternion(camera.quaternion);
-  target.add(camera.position);
-  heldMesh.position.copy(target);
-  heldMesh.quaternion.copy(camera.quaternion);
+  heldChipIndices.forEach((chipIndex, stackIndex) => {
+    const heldMesh = room.chipMeshes[chipIndex];
+    const target = room.holdOffset.clone();
+    target.y += stackIndex * room.chipHeight;
+    target.applyQuaternion(camera.quaternion);
+    target.add(camera.position);
+    heldMesh.position.copy(target);
+    heldMesh.quaternion.copy(camera.quaternion);
+  });
 }
 
 function tryInteract(): void {
   raycaster.setFromCamera(screenCenter, camera);
 
-  if (heldChipIndex === null) {
-    const intersections = raycaster.intersectObjects(room.chipMeshes, false);
-    const firstChip = intersections[0]?.object;
-    if (!firstChip) {
-      return;
-    }
-
-    const chipIndex = room.chipMeshes.findIndex((mesh) => mesh === firstChip);
-    if (chipIndex < 0) {
-      return;
-    }
-
-    const current = chips[chipIndex];
-    const next = pickChip(current, null);
-    if (canPickChip(current, null) && next !== current) {
-      chips[chipIndex] = next;
-      heldChipIndex = chipIndex;
-    }
-    return;
-  }
-
-  const heldChip = chips[heldChipIndex];
   const columnHits = raycaster.intersectObjects(room.caseColumns, false);
   const firstColumn = columnHits[0]?.object;
-  if (!firstColumn) {
+  if (firstColumn && heldChipIndices.length > 0) {
+    const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+    if (topChipIndex === undefined) {
+      return;
+    }
+
+    const columnIndex = firstColumn.userData.columnIndex;
+    if (typeof columnIndex !== "number") {
+      return;
+    }
+
+    const column = room.columns[columnIndex];
+    const heldChip = chips[topChipIndex];
+    const heldChips = getHeldChips();
+    if (!canPlaceChip(heldChip, column, heldChips)) {
+      return;
+    }
+
+    placeHeldChipIntoColumn(topChipIndex, columnIndex);
     return;
   }
 
-  const columnIndex = firstColumn.userData.columnIndex;
-  if (typeof columnIndex !== "number") {
+  const intersections = raycaster.intersectObjects(room.chipMeshes, false);
+  const firstChip = intersections[0]?.object;
+  if (!firstChip) {
     return;
   }
 
-  const column = room.columns[columnIndex];
-  if (!canPlaceChip(heldChip, column)) {
+  const chipIndex = room.chipMeshes.findIndex((mesh) => mesh === firstChip);
+  if (chipIndex < 0) {
     return;
   }
 
-  placeHeldChipIntoColumn(heldChipIndex, columnIndex);
+  const current = chips[chipIndex];
+  const heldChips = getHeldChips();
+  const next = pickChip(current, heldChips);
+  if (canPickChip(current, heldChips) && next !== current) {
+    chips[chipIndex] = next;
+    heldChipIndices = [...heldChipIndices, chipIndex];
+  }
 }
 
 canvas.addEventListener("mousedown", () => {
   tryInteract();
 });
+
+canvas.addEventListener(
+  "wheel",
+  (event) => {
+    if (heldChipIndices.length < 2) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.deltaY < 0) {
+      rotateHeldChipsUp();
+    } else if (event.deltaY > 0) {
+      rotateHeldChipsDown();
+    }
+  },
+  { passive: false }
+);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -145,31 +208,49 @@ if (typeof window !== "undefined") {
   const testApi = {
     getProgress: (): string => document.getElementById("hud")?.textContent ?? "",
     triggerPickChip: (chipIndex: number): boolean => {
-      if (heldChipIndex !== null) {
-        return false;
-      }
       const chip = chips[chipIndex];
       if (!chip) {
         return false;
       }
-      if (!canPickChip(chip, null)) {
+      const heldChips = getHeldChips();
+      if (!canPickChip(chip, heldChips)) {
         return false;
       }
-      chips[chipIndex] = pickChip(chip, null);
-      heldChipIndex = chipIndex;
+      chips[chipIndex] = pickChip(chip, heldChips);
+      heldChipIndices = [...heldChipIndices, chipIndex];
       return true;
     },
     triggerPlaceColumn: (columnIndex: number): boolean => {
-      if (heldChipIndex === null) {
-        return false;
-      }
-      const heldChip = chips[heldChipIndex];
-      const column = room.columns[columnIndex];
-      if (!column || !canPlaceChip(heldChip, column)) {
+      if (heldChipIndices.length === 0) {
         return false;
       }
 
-      return placeHeldChipIntoColumn(heldChipIndex, columnIndex);
+      const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+      if (topChipIndex === undefined) {
+        return false;
+      }
+
+      const heldChip = chips[topChipIndex];
+      const column = room.columns[columnIndex];
+      if (!column || !canPlaceChip(heldChip, column, getHeldChips())) {
+        return false;
+      }
+
+      return placeHeldChipIntoColumn(topChipIndex, columnIndex);
+    },
+    triggerRotateUp: (): boolean => rotateHeldChipsUp(),
+    triggerRotateDown: (): boolean => rotateHeldChipsDown(),
+    getHeldChipIds: (): string[] =>
+      heldChipIndices
+        .map((chipIndex) => chips[chipIndex]?.id)
+        .filter((chipId): chipId is string => chipId !== undefined),
+    getHeldCount: (): number => heldChipIndices.length,
+    getHeldTopChipId: (): string | null => {
+      const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+      if (topChipIndex === undefined) {
+        return null;
+      }
+      return chips[topChipIndex]?.id ?? null;
     },
     firstUnplacedChipByColor: (color: Chip["color"]): number => {
       for (let index = 0; index < chips.length; index += 1) {
