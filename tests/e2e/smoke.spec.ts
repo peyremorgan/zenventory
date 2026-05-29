@@ -389,6 +389,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
       firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
       triggerPickChip: (chipIndex: number) => boolean;
       triggerThrowTopChip: () => boolean;
+      getThrowSoundStats: () => { triggerCount: number; playedCount: number; isLoaded: boolean };
       isChipThrown: (chipIndex: number) => boolean;
       getChipPosition: (chipIndex: number) => Position | null;
       getChipLinearSpeed: (chipIndex: number) => number;
@@ -406,7 +407,9 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
     const chipIndex = api.firstUnplacedChipByColor("white");
     const picked = api.triggerPickChip(chipIndex);
     const startPosition = api.getChipPosition(chipIndex);
+  const soundStatsBeforeThrow = api.getThrowSoundStats();
     const thrown = api.triggerThrowTopChip();
+  const soundStatsAfterThrow = api.getThrowSoundStats();
     const isThrownAfterThrow = api.isChipThrown(chipIndex);
 
     api.stepSimulation(1 / 120, 90);
@@ -423,6 +426,8 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
     return {
       picked,
       thrown,
+      soundStatsBeforeThrow,
+      soundStatsAfterThrow,
       isThrownAfterThrow,
       startPosition,
       midPosition,
@@ -437,6 +442,11 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
 
   expect(result.picked).toBe(true);
   expect(result.thrown).toBe(true);
+  expect(result.soundStatsBeforeThrow.isLoaded).toBe(true);
+  expect(result.soundStatsAfterThrow.triggerCount).toBe(result.soundStatsBeforeThrow.triggerCount + 1);
+  expect(result.soundStatsAfterThrow.playedCount).toBeGreaterThanOrEqual(
+    result.soundStatsBeforeThrow.playedCount
+  );
   expect(result.isThrownAfterThrow).toBe(true);
   expect(result.startPosition).not.toBeNull();
   expect(result.midPosition).not.toBeNull();

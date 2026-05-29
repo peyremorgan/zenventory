@@ -14,6 +14,9 @@ import { canPlaceChip, canPickChip, placeChip, pickChip, type Chip } from "./sor
 import { setupScene } from "./scene";
 import { stackChipCenterY } from "./stacking";
 import { damp, getSafeHeldForwardDistance, HELD_CHIP_FORWARD_RADIUS } from "./wallProximity";
+import { loadSound, playSound } from "./audio";
+
+import wooshSfxUrl from "../assets/sounds/woosh.ogg?url";
 
 const canvas = document.getElementById("game");
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -58,6 +61,9 @@ async function bootstrap(): Promise<void> {
   let sortedCount = 0;
   let heldChipIndices: number[] = [];
   let heldForwardDistance = -room.holdOffset.z;
+  const throwSoundBuffer = await loadSound(wooshSfxUrl);
+  let throwSoundTriggerCount = 0;
+  let throwSoundPlayedCount = 0;
   hud.update(sortedCount);
   hud.updateHeldCount(heldChipIndices.length);
 
@@ -269,6 +275,12 @@ async function bootstrap(): Promise<void> {
 
     worldRight.crossVectors(worldForward, camera.up).normalize();
     setThrownState(body, worldForward, worldRight, DEFAULT_THROW_TUNING, chipsHeldBeforeThrow);
+
+    throwSoundTriggerCount += 1;
+    if (playSound(throwSoundBuffer)) {
+      throwSoundPlayedCount += 1;
+    }
+
     return true;
   }
 
@@ -379,6 +391,11 @@ async function bootstrap(): Promise<void> {
           .map((chipIndex) => chips[chipIndex]?.id)
           .filter((chipId): chipId is string => chipId !== undefined),
       getHeldCount: (): number => heldChipIndices.length,
+      getThrowSoundStats: (): { triggerCount: number; playedCount: number; isLoaded: boolean } => ({
+        triggerCount: throwSoundTriggerCount,
+        playedCount: throwSoundPlayedCount,
+        isLoaded: throwSoundBuffer !== null
+      }),
       getHeldTopChipId: (): string | null => {
         const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
         if (topChipIndex === undefined) {
