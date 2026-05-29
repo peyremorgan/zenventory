@@ -130,4 +130,4 @@ zenventory/
 
 ## License
 
-ISC
+MIT-0
