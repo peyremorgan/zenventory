@@ -59,6 +59,7 @@ async function bootstrap(): Promise<void> {
   let heldChipIndices: number[] = [];
   let heldForwardDistance = -room.holdOffset.z;
   hud.update(sortedCount);
+  hud.updateHeldCount(heldChipIndices.length);
 
   const worldForward = new Vector3();
   const worldRight = new Vector3();
@@ -145,6 +146,7 @@ async function bootstrap(): Promise<void> {
       columnMesh.position.z
     );
     heldChipIndices = heldChipIndices.slice(0, -1);
+    hud.updateHeldCount(heldChipIndices.length);
 
     if (!wasPlaced) {
       sortedCount += 1;
@@ -228,10 +230,12 @@ async function bootstrap(): Promise<void> {
       chips[chipIndex] = next;
       stopChipPhysics(chipIndex);
       heldChipIndices = [...heldChipIndices, chipIndex];
+      hud.updateHeldCount(heldChipIndices.length);
     }
   }
 
   function tryThrowTopHeldChip(): boolean {
+    const chipsHeldBeforeThrow = heldChipIndices.length;
     const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
     if (topChipIndex === undefined) {
       return false;
@@ -252,6 +256,7 @@ async function bootstrap(): Promise<void> {
       placedColumnIndex: null
     };
     heldChipIndices = heldChipIndices.slice(0, -1);
+    hud.updateHeldCount(heldChipIndices.length);
 
     syncRigidBodyTransform(body, chipMesh.position, chipMesh.quaternion);
     camera.getWorldDirection(worldForward);
@@ -263,7 +268,7 @@ async function bootstrap(): Promise<void> {
     }
 
     worldRight.crossVectors(worldForward, camera.up).normalize();
-    setThrownState(body, worldForward, worldRight, DEFAULT_THROW_TUNING);
+    setThrownState(body, worldForward, worldRight, DEFAULT_THROW_TUNING, chipsHeldBeforeThrow);
     return true;
   }
 
@@ -343,7 +348,9 @@ async function bootstrap(): Promise<void> {
           return false;
         }
         chips[chipIndex] = pickChip(chip, heldChips);
+        stopChipPhysics(chipIndex);
         heldChipIndices = [...heldChipIndices, chipIndex];
+        hud.updateHeldCount(heldChipIndices.length);
         return true;
       },
       triggerPlaceColumn: (columnIndex: number): boolean => {

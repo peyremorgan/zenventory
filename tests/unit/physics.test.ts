@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createChipRigidBody,
   setThrownState,
@@ -33,6 +33,113 @@ describe("chip rigid body", () => {
     expect(body.isSimulating).toBe(true);
     expect(body.linearVelocity.length()).toBeGreaterThan(0);
     expect(body.angularVelocity.length()).toBeGreaterThan(0);
+  });
+
+  it("is fully precise when throwing the last chip", () => {
+    const bodyA = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+    const bodyB = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    const randomSpy = vi.spyOn(Math, "random");
+    randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValue(0.37);
+
+    setThrownState(bodyA, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 1);
+    setThrownState(bodyB, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 1);
+
+    expect(bodyA.linearVelocity.distanceTo(bodyB.linearVelocity)).toBeCloseTo(0, 10);
+    expect(bodyA.angularVelocity.distanceTo(bodyB.angularVelocity)).toBeCloseTo(0, 10);
+    expect(bodyA.linearVelocity.length()).toBeCloseTo(6.4, 10);
+
+    randomSpy.mockRestore();
+  });
+
+  it("applies +/-3% throw force variation with two chips", () => {
+    const bodyMin = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+    const bodyMax = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    const randomSpy = vi.spyOn(Math, "random");
+    randomSpy
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5);
+
+    setThrownState(bodyMin, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 2);
+    setThrownState(bodyMax, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 2);
+
+    expect(bodyMin.linearVelocity.length()).toBeCloseTo(6.4 * 0.97, 10);
+    expect(bodyMax.linearVelocity.length()).toBeCloseTo(6.4 * 1.03, 10);
+
+    randomSpy.mockRestore();
+  });
+
+  it("applies +/-9% throw force variation with four chips", () => {
+    const bodyMin = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+    const bodyMax = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    const randomSpy = vi.spyOn(Math, "random");
+    randomSpy
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5);
+
+    setThrownState(bodyMin, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 4);
+    setThrownState(bodyMax, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 4);
+
+    expect(bodyMin.linearVelocity.length()).toBeCloseTo(6.4 * 0.91, 10);
+    expect(bodyMax.linearVelocity.length()).toBeCloseTo(6.4 * 1.09, 10);
+
+    randomSpy.mockRestore();
+  });
+
+  it("scales up and sideways throw bias with chip count", () => {
+    const bodyLow = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+    const bodyHigh = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    const randomSpy = vi.spyOn(Math, "random");
+    randomSpy
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1);
+
+    setThrownState(bodyLow, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 2);
+    setThrownState(bodyHigh, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 4);
+
+    const directionLow = bodyLow.linearVelocity.clone().normalize();
+    const directionHigh = bodyHigh.linearVelocity.clone().normalize();
+
+    expect(directionHigh.y).toBeGreaterThan(directionLow.y);
+    expect(directionHigh.x).toBeGreaterThan(directionLow.x);
+
+    randomSpy.mockRestore();
+  });
+
+  it("clamps randomization scale for chip counts above four", () => {
+    const bodyFour = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+    const bodyLarge = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    const randomSpy = vi.spyOn(Math, "random");
+    randomSpy
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(1);
+
+    setThrownState(bodyFour, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 4);
+    setThrownState(bodyLarge, new Vector3(0, 0, -1), new Vector3(1, 0, 0), undefined, 99);
+
+    expect(bodyLarge.linearVelocity.distanceTo(bodyFour.linearVelocity)).toBeCloseTo(0, 10);
+
+    randomSpy.mockRestore();
   });
 
   it("applies gravity while simulating", () => {

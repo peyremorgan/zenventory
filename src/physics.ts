@@ -44,6 +44,10 @@ export const DEFAULT_THROW_TUNING: ThrowTuning = {
 };
 
 const EPSILON = 1e-6;
+const MAX_THROW_RANDOMIZATION_SCALE = 3;
+const FORCE_VARIATION_PER_SCALE = 0.03;
+const UP_BIAS_VARIATION_PER_SCALE = 0.005;
+const SIDEWAYS_BIAS_VARIATION_PER_SCALE = 0.002;
 const SLEEP_LINEAR_THRESHOLD = 0.2;
 const SLEEP_ANGULAR_THRESHOLD = 0.6;
 const SLEEP_FRAMES = 18;
@@ -114,7 +118,8 @@ export function setThrownState(
   body: ChipRigidBody,
   cameraForward: Vector3,
   cameraRight: Vector3,
-  tuning: ThrowTuning = DEFAULT_THROW_TUNING
+  tuning: ThrowTuning = DEFAULT_THROW_TUNING,
+  chipsInHand: number = 1
 ): void {
   const forward = scratchForward.copy(cameraForward);
   if (forward.lengthSq() < EPSILON) {
@@ -128,9 +133,30 @@ export function setThrownState(
   }
   right.normalize();
 
-  const throwDirection = scratchUp.copy(forward).addScaledVector(WORLD_UP, tuning.upBias).normalize();
+  const throwRandomizationScale = clamp(
+    Math.floor(chipsInHand) - 1,
+    0,
+    MAX_THROW_RANDOMIZATION_SCALE
+  );
 
-  body.linearVelocity.copy(throwDirection).multiplyScalar(tuning.throwSpeed);
+  let speedMultiplier = 1;
+  let randomUpBias = 0;
+  let randomSidewaysBias = 0;
+
+  if (throwRandomizationScale > 0) {
+    const forceVariation = FORCE_VARIATION_PER_SCALE * throwRandomizationScale;
+    speedMultiplier = 1 + randomSigned(forceVariation);
+    randomUpBias = randomSigned(UP_BIAS_VARIATION_PER_SCALE * throwRandomizationScale);
+    randomSidewaysBias = randomSigned(SIDEWAYS_BIAS_VARIATION_PER_SCALE * throwRandomizationScale);
+  }
+
+  const throwDirection = scratchUp
+    .copy(forward)
+    .addScaledVector(WORLD_UP, tuning.upBias + randomUpBias)
+    .addScaledVector(right, randomSidewaysBias)
+    .normalize();
+
+  body.linearVelocity.copy(throwDirection).multiplyScalar(tuning.throwSpeed * speedMultiplier);
   body.angularVelocity
     .copy(right)
     .multiplyScalar(tuning.sideSpin)
@@ -474,4 +500,8 @@ function applyInverseInertiaWorld(body: ChipRigidBody, vector: Vector3, target: 
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function randomSigned(amplitude: number): number {
+  return (Math.random() * 2 - 1) * amplitude;
 }
