@@ -222,6 +222,70 @@ test("held chip stays in front of wall surface when facing wall up close", async
   expect(result.held.x + result.radius).toBeLessThanOrEqual(result.walls.maxX - 0.01);
 });
 
+test("crosshair expands subtly as more chips are held", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
+
+  const result = await page.evaluate(() => {
+    type TestApi = {
+      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      triggerPickChip: (chipIndex: number) => boolean;
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const crosshair = document.getElementById("crosshair");
+    if (!crosshair) {
+      throw new Error("Missing #crosshair");
+    }
+
+    const width = (): number => parseFloat(window.getComputedStyle(crosshair).width);
+
+    const widthAtZero = width();
+    const white = api.firstUnplacedChipByColor("white");
+    const black = api.firstUnplacedChipByColor("black");
+    const red = api.firstUnplacedChipByColor("red");
+    const green = api.firstUnplacedChipByColor("green");
+
+    const pickedOne = api.triggerPickChip(white);
+    const widthAtOne = width();
+    const pickedTwo = api.triggerPickChip(black);
+    const widthAtTwo = width();
+    const pickedThree = api.triggerPickChip(red);
+    const widthAtThree = width();
+    const pickedFour = api.triggerPickChip(green);
+    const widthAtFour = width();
+
+    return {
+      pickedOne,
+      pickedTwo,
+      pickedThree,
+      pickedFour,
+      widthAtZero,
+      widthAtOne,
+      widthAtTwo,
+      widthAtThree,
+      widthAtFour
+    };
+  });
+
+  expect(result.pickedOne).toBe(true);
+  expect(result.pickedTwo).toBe(true);
+  expect(result.pickedThree).toBe(true);
+  expect(result.pickedFour).toBe(true);
+
+  expect(result.widthAtOne).toBeCloseTo(result.widthAtZero, 3);
+  expect(result.widthAtTwo).toBeGreaterThan(result.widthAtOne);
+  expect(result.widthAtThree).toBeGreaterThan(result.widthAtTwo);
+  expect(result.widthAtFour).toBeGreaterThan(result.widthAtThree);
+  expect(result.widthAtFour).toBeCloseTo(14, 1);
+});
+
 test("table materials use distinct MTL-driven colors", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => {
