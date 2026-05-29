@@ -270,3 +270,80 @@ test("table materials use distinct MTL-driven colors", async ({ page }) => {
   expect(result.cloth.g).toBeGreaterThan(result.wood.g);
   expect(result.cushion.r).toBeGreaterThan(result.wood.r);
 });
+
+test("thrown chip uses rigid-body physics and can be picked after settling", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
+
+  const result = await page.evaluate(() => {
+    type Position = { x: number; y: number; z: number };
+    type TestApi = {
+      firstUnplacedChipByColor: (color: "white" | "black" | "red" | "green") => number;
+      triggerPickChip: (chipIndex: number) => boolean;
+      triggerThrowTopChip: () => boolean;
+      isChipThrown: (chipIndex: number) => boolean;
+      getChipPosition: (chipIndex: number) => Position | null;
+      getChipLinearSpeed: (chipIndex: number) => number;
+      getChipAngularSpeed: (chipIndex: number) => number;
+      stepSimulation: (delta: number, steps: number) => void;
+      getHeldCount: () => number;
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const chipIndex = api.firstUnplacedChipByColor("white");
+    const picked = api.triggerPickChip(chipIndex);
+    const startPosition = api.getChipPosition(chipIndex);
+    const thrown = api.triggerThrowTopChip();
+    const isThrownAfterThrow = api.isChipThrown(chipIndex);
+
+    api.stepSimulation(1 / 120, 90);
+    const midPosition = api.getChipPosition(chipIndex);
+    const linearSpeedAfterThrow = api.getChipLinearSpeed(chipIndex);
+    const angularSpeedAfterThrow = api.getChipAngularSpeed(chipIndex);
+
+    api.stepSimulation(1 / 120, 900);
+    const isThrownAfterSettle = api.isChipThrown(chipIndex);
+    const repicked = api.triggerPickChip(chipIndex);
+    const heldCountAfterRepick = api.getHeldCount();
+
+    return {
+      picked,
+      thrown,
+      isThrownAfterThrow,
+      startPosition,
+      midPosition,
+      linearSpeedAfterThrow,
+      angularSpeedAfterThrow,
+      isThrownAfterSettle,
+      repicked,
+      heldCountAfterRepick
+    };
+  });
+
+  expect(result.picked).toBe(true);
+  expect(result.thrown).toBe(true);
+  expect(result.isThrownAfterThrow).toBe(true);
+  expect(result.startPosition).not.toBeNull();
+  expect(result.midPosition).not.toBeNull();
+  if (!result.startPosition || !result.midPosition) {
+    throw new Error("Missing chip positions for throw test assertions");
+  }
+
+  const dx = result.midPosition.x - result.startPosition.x;
+  const dy = result.midPosition.y - result.startPosition.y;
+  const dz = result.midPosition.z - result.startPosition.z;
+  const distance = Math.hypot(dx, dy, dz);
+
+  expect(distance).toBeGreaterThan(0.2);
+  expect(result.linearSpeedAfterThrow).toBeGreaterThan(0.1);
+  expect(result.angularSpeedAfterThrow).toBeGreaterThan(0.1);
+  expect(result.isThrownAfterSettle).toBe(false);
+  expect(result.repicked).toBe(true);
+  expect(result.heldCountAfterRepick).toBe(1);
+});
