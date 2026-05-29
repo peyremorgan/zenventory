@@ -53,3 +53,49 @@ test("test API enforces one-chip hold and correct-column placement", async ({ pa
   expect(result.placedY).toBeCloseTo(result.expectedFirstStackY, 6);
   await expect(page.locator("#hud")).toHaveText("1 / 16 sorted");
 });
+
+test("test API clamps player movement to outer room walls", async ({ page }) => {
+  await page.goto("/");
+
+  const result = await page.evaluate(() => {
+    type Bounds = {
+      minX: number;
+      maxX: number;
+      minZ: number;
+      maxZ: number;
+    };
+    type KeyState = {
+      forward: boolean;
+      backward: boolean;
+      left: boolean;
+      right: boolean;
+    };
+    type TestApi = {
+      setCameraPositionXZ: (x: number, z: number) => { x: number; z: number };
+      getRoomBounds: () => Bounds;
+      simulateMoveStep: (input: Partial<KeyState>, delta: number) => { x: number; z: number };
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const bounds = api.getRoomBounds();
+
+    api.setCameraPositionXZ(bounds.maxX - 0.05, 0);
+    const rightWall = api.simulateMoveStep({ right: true }, 3);
+
+    api.setCameraPositionXZ(0, bounds.minZ + 0.05);
+    const backWall = api.simulateMoveStep({ forward: true }, 3);
+
+    return {
+      bounds,
+      rightWall,
+      backWall
+    };
+  });
+
+  expect(result.rightWall.x).toBe(result.bounds.maxX);
+  expect(result.backWall.z).toBe(result.bounds.minZ);
+});
