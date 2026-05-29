@@ -98,4 +98,40 @@ describe("chip rigid body", () => {
     expect(body.quaternion.equals(before)).toBe(false);
     expect(Math.abs(body.quaternion.length() - 1)).toBeLessThan(1e-6);
   });
+
+  it("applies settling torque for tilted chip on floor contact", () => {
+    const body = createChipRigidBody(
+      new Vector3(0, 0.1, 0),
+      new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 4)
+    );
+    body.isSimulating = true;
+
+    const env = createEnvironment({ tableTopY: -10, tableRadius: 0 });
+    stepChipRigidBody(body, env, 1 / 60);
+
+    expect(Math.abs(body.angularVelocity.z)).toBeGreaterThan(0.01);
+  });
+
+  it("does not apply settling torque while airborne", () => {
+    const body = createChipRigidBody(
+      new Vector3(0, 1.2, 0),
+      new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 4)
+    );
+    body.isSimulating = true;
+
+    const env = createEnvironment({ floorY: -5, tableTopY: -10, tableRadius: 0 });
+    stepChipRigidBody(body, env, 1 / 60);
+
+    expect(body.angularVelocity.lengthSq()).toBeLessThan(1e-8);
+  });
+
+  it("keeps flat chip stable on floor contact", () => {
+    const body = createChipRigidBody(new Vector3(0, 0.03, 0), new Quaternion());
+    body.isSimulating = true;
+
+    const env = createEnvironment({ tableTopY: -10, tableRadius: 0 });
+    stepChipRigidBody(body, env, 1 / 60);
+
+    expect(body.angularVelocity.length()).toBeLessThan(1e-4);
+  });
 });

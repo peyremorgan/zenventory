@@ -287,6 +287,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
       getChipPosition: (chipIndex: number) => Position | null;
       getChipLinearSpeed: (chipIndex: number) => number;
       getChipAngularSpeed: (chipIndex: number) => number;
+      getChipUpAlignment: (chipIndex: number) => number | null;
       stepSimulation: (delta: number, steps: number) => void;
       getHeldCount: () => number;
     };
@@ -309,6 +310,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
 
     api.stepSimulation(1 / 120, 900);
     const isThrownAfterSettle = api.isChipThrown(chipIndex);
+    const upAlignmentAfterSettle = api.getChipUpAlignment(chipIndex);
     const repicked = api.triggerPickChip(chipIndex);
     const heldCountAfterRepick = api.getHeldCount();
 
@@ -321,6 +323,7 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
       linearSpeedAfterThrow,
       angularSpeedAfterThrow,
       isThrownAfterSettle,
+      upAlignmentAfterSettle,
       repicked,
       heldCountAfterRepick
     };
@@ -344,6 +347,8 @@ test("thrown chip uses rigid-body physics and can be picked after settling", asy
   expect(result.linearSpeedAfterThrow).toBeGreaterThan(0.1);
   expect(result.angularSpeedAfterThrow).toBeGreaterThan(0.1);
   expect(result.isThrownAfterSettle).toBe(false);
+  expect(result.upAlignmentAfterSettle).not.toBeNull();
+  expect(result.upAlignmentAfterSettle).toBeGreaterThan(0.92);
   expect(result.repicked).toBe(true);
   expect(result.heldCountAfterRepick).toBe(1);
 });
