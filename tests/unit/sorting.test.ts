@@ -27,6 +27,7 @@ describe("sorting rules", () => {
       id: "chip-white-0",
       color: "white",
       isHeld: false,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -39,6 +40,7 @@ describe("sorting rules", () => {
       id: "chip-white-0",
       color: "white",
       isHeld: false,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -47,6 +49,7 @@ describe("sorting rules", () => {
       id: "chip-red-0",
       color: "red",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -54,6 +57,7 @@ describe("sorting rules", () => {
       id: "chip-black-0",
       color: "black",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -61,6 +65,7 @@ describe("sorting rules", () => {
       id: "chip-green-0",
       color: "green",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -68,6 +73,7 @@ describe("sorting rules", () => {
       id: "chip-white-1",
       color: "white",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -80,10 +86,25 @@ describe("sorting rules", () => {
       id: "chip-red-2",
       color: "red",
       isHeld: false,
+      isThrown: false,
       isPlaced: true,
       placedColumnIndex: 2
     };
 
+    expect(pickChip(chip, [])).toEqual(chip);
+  });
+
+  it("prevents picking chip while it is still thrown", () => {
+    const chip: Chip = {
+      id: "chip-green-2",
+      color: "green",
+      isHeld: false,
+      isThrown: true,
+      isPlaced: false,
+      placedColumnIndex: null
+    };
+
+    expect(canPickChip(chip, [])).toBe(false);
     expect(pickChip(chip, [])).toEqual(chip);
   });
 
@@ -92,6 +113,7 @@ describe("sorting rules", () => {
       id: "chip-black-1",
       color: "black",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -100,6 +122,7 @@ describe("sorting rules", () => {
       id: "chip-red-1",
       color: "red",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -114,6 +137,7 @@ describe("sorting rules", () => {
       id: "chip-red-0",
       color: "red",
       isHeld: true,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };
@@ -121,6 +145,7 @@ describe("sorting rules", () => {
     expect(placeChip(chip, redColumn, [chip])).toEqual({
       ...chip,
       isHeld: false,
+      isThrown: false,
       isPlaced: true,
       placedColumnIndex: 2
     });
@@ -131,6 +156,7 @@ describe("sorting rules", () => {
       id: "chip-black-0",
       color: "black",
       isHeld: false,
+      isThrown: false,
       isPlaced: false,
       placedColumnIndex: null
     };

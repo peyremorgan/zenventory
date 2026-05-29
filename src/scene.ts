@@ -19,7 +19,9 @@ import {
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { toWallInnerBounds } from "./roomBounds";
 import type { CaseColumn, ChipColor } from "./sorting";
+import type { PhysicsEnvironment } from "./physics";
 
 import chipMtlUrl from "../assets/models/chip.mtl?url";
 import chipObjUrl from "../assets/models/chip.obj?url";
@@ -35,6 +37,7 @@ export interface RoomScene {
   columnStackBaseY: number;
   holdOffset: Vector3;
   usingExternalAssets: boolean;
+  physicsEnvironment: PhysicsEnvironment;
 }
 
 const CHIP_COLORS: Record<ChipColor, number> = {
@@ -51,6 +54,9 @@ const TOTAL_CHIPS = CHIP_COLOR_ORDER.length * CHIPS_PER_COLOR;
 export const CHIP_HEIGHT = 0.06;
 const CHIP_RADIUS = 0.17;
 const TABLE_TARGET_DIAMETER = 5.8;
+const TABLE_RADIUS = TABLE_TARGET_DIAMETER / 2;
+const TABLE_CENTER_X = 0;
+const TABLE_CENTER_Z = -2.5;
 
 type ChipAsset = { objUrl: string; mtlUrl: string };
 type ChipPrototype = { geometry: BufferGeometry; material: Material | Material[] };
@@ -272,19 +278,23 @@ async function loadChipPrototypes(): Promise<Record<ChipColor, ChipPrototype>> {
 function addFallbackTable(scene: Scene, tableHeight: number): void {
   const tableCylinderHeight = 0.22;
   const table = new Mesh(
-    new CylinderGeometry(2.9, 2.9, tableCylinderHeight, 48),
+    new CylinderGeometry(TABLE_RADIUS, TABLE_RADIUS, tableCylinderHeight, 48),
     new MeshStandardMaterial({ color: "#195f2d", roughness: 0.78 })
   );
-  table.position.set(0, tableHeight - tableCylinderHeight / 2, -2.5);
+  table.position.set(TABLE_CENTER_X, tableHeight - tableCylinderHeight / 2, TABLE_CENTER_Z);
   table.receiveShadow = true;
   scene.add(table);
 
   const rimHeight = 0.12;
   const tableRim = new Mesh(
-    new CylinderGeometry(3.05, 3.05, rimHeight, 48),
+    new CylinderGeometry(TABLE_RADIUS + 0.15, TABLE_RADIUS + 0.15, rimHeight, 48),
     new MeshStandardMaterial({ color: "#3d2f23", roughness: 0.7 })
   );
-  tableRim.position.set(0, tableHeight - tableCylinderHeight / 2 - rimHeight / 2 - 0.02, -2.5);
+  tableRim.position.set(
+    TABLE_CENTER_X,
+    tableHeight - tableCylinderHeight / 2 - rimHeight / 2 - 0.02,
+    TABLE_CENTER_Z
+  );
   scene.add(tableRim);
 }
 
@@ -324,7 +334,7 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
     const tableModel = await loadTableModel();
     const tableBounds = new Box3().setFromObject(tableModel);
     const yOffset = tableHeight - tableBounds.max.y;
-    tableModel.position.set(0, yOffset, -2.5);
+    tableModel.position.set(TABLE_CENTER_X, yOffset, TABLE_CENTER_Z);
     scene.add(tableModel);
   } catch {
     usingExternalAssets = false;
@@ -433,6 +443,14 @@ export async function setupScene(scene: Scene): Promise<RoomScene> {
     chipHeight: CHIP_HEIGHT,
     columnStackBaseY,
     holdOffset: new Vector3(0.33, -0.17, -0.74),
-    usingExternalAssets
+    usingExternalAssets,
+    physicsEnvironment: {
+      floorY: 0,
+      tableTopY: tableHeight,
+      tableCenterX: TABLE_CENTER_X,
+      tableCenterZ: TABLE_CENTER_Z,
+      tableRadius: TABLE_RADIUS,
+      wallBounds: toWallInnerBounds()
+    }
   };
 }

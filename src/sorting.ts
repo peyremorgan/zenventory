@@ -5,6 +5,7 @@ export interface Chip {
   color: ChipColor;
   isPlaced: boolean;
   isHeld: boolean;
+  isThrown: boolean;
   placedColumnIndex: number | null;
 }
 
@@ -15,7 +16,7 @@ export interface CaseColumn {
 }
 
 export function canPickChip(chip: Chip, heldChips: Chip[]): boolean {
-  return !chip.isPlaced && !chip.isHeld && heldChips.length < 4;
+  return !chip.isPlaced && !chip.isHeld && !chip.isThrown && heldChips.length < 4;
 }
 
 export function canPlaceChip(chip: Chip, column: CaseColumn, heldChips: Chip[]): boolean {
@@ -35,7 +36,8 @@ export function pickChip(chip: Chip, heldChips: Chip[]): Chip {
 
   return {
     ...chip,
-    isHeld: true
+    isHeld: true,
+    isThrown: false
   };
 }
 
@@ -47,6 +49,7 @@ export function placeChip(chip: Chip, column: CaseColumn, heldChips: Chip[]): Ch
   return {
     ...chip,
     isHeld: false,
+    isThrown: false,
     isPlaced: true,
     placedColumnIndex: column.columnIndex
   };

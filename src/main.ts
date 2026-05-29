@@ -1,5 +1,13 @@
 import { Clock, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
 import { createHud } from "./hud";
+import {
+  DEFAULT_THROW_TUNING,
+  createChipRigidBody,
+  setThrownState,
+  stepChipRigidBody,
+  syncRigidBodyTransform,
+  type ChipRigidBody
+} from "./physics";
 import { applyMovementStep, createPlayer, type KeyState } from "./player";
 import { ROOM_BOUNDS, clampPositionToRoom, toWallInnerBounds } from "./roomBounds";
 import { canPlaceChip, canPickChip, placeChip, pickChip, type Chip } from "./sorting";
@@ -40,8 +48,12 @@ async function bootstrap(): Promise<void> {
     color,
     isPlaced: false,
     isHeld: false,
+    isThrown: false,
     placedColumnIndex: null
   }));
+  const chipBodies: ChipRigidBody[] = room.chipMeshes.map((chipMesh) =>
+    createChipRigidBody(chipMesh.position, chipMesh.quaternion)
+  );
 
   let sortedCount = 0;
   let heldChipIndices: number[] = [];
@@ -49,6 +61,21 @@ async function bootstrap(): Promise<void> {
   hud.update(sortedCount);
 
   const worldForward = new Vector3();
+  const worldRight = new Vector3();
+
+  function stopChipPhysics(chipIndex: number): void {
+    const body = chipBodies[chipIndex];
+    const chipMesh = room.chipMeshes[chipIndex];
+    if (!body || !chipMesh) {
+      return;
+    }
+
+    syncRigidBodyTransform(body, chipMesh.position, chipMesh.quaternion);
+    body.linearVelocity.set(0, 0, 0);
+    body.angularVelocity.set(0, 0, 0);
+    body.isSimulating = false;
+    body.restFrames = 0;
+  }
 
   function getHeldChips(): Chip[] {
     return heldChipIndices
@@ -109,6 +136,7 @@ async function bootstrap(): Promise<void> {
       (placedChip) => placedChip.isPlaced && placedChip.placedColumnIndex === columnIndex
     ).length;
     const placedMesh = room.chipMeshes[chipIndex];
+    stopChipPhysics(chipIndex);
     placedMesh.rotation.set(0, 0, 0);
     placedMesh.position.set(
       columnMesh.position.x,
@@ -143,6 +171,7 @@ async function bootstrap(): Promise<void> {
 
     heldChipIndices.forEach((chipIndex, stackIndex) => {
       const heldMesh = room.chipMeshes[chipIndex];
+      stopChipPhysics(chipIndex);
       const target = room.holdOffset.clone();
       target.y += stackIndex * room.chipHeight;
       target.z = -heldForwardDistance;
@@ -196,7 +225,75 @@ async function bootstrap(): Promise<void> {
     const next = pickChip(current, heldChips);
     if (canPickChip(current, heldChips) && next !== current) {
       chips[chipIndex] = next;
+      stopChipPhysics(chipIndex);
       heldChipIndices = [...heldChipIndices, chipIndex];
+    }
+  }
+
+  function tryThrowTopHeldChip(): boolean {
+    const topChipIndex = heldChipIndices[heldChipIndices.length - 1];
+    if (topChipIndex === undefined) {
+      return false;
+    }
+
+    const chip = chips[topChipIndex];
+    const chipMesh = room.chipMeshes[topChipIndex];
+    const body = chipBodies[topChipIndex];
+    if (!chip || !chipMesh || !body) {
+      return false;
+    }
+
+    chips[topChipIndex] = {
+      ...chip,
+      isHeld: false,
+      isPlaced: false,
+      isThrown: true,
+      placedColumnIndex: null
+    };
+    heldChipIndices = heldChipIndices.slice(0, -1);
+
+    syncRigidBodyTransform(body, chipMesh.position, chipMesh.quaternion);
+    camera.getWorldDirection(worldForward);
+    worldForward.y = 0;
+    if (worldForward.lengthSq() <= 1e-8) {
+      worldForward.set(0, 0, -1);
+    } else {
+      worldForward.normalize();
+    }
+
+    worldRight.crossVectors(worldForward, camera.up).normalize();
+    setThrownState(body, worldForward, worldRight, DEFAULT_THROW_TUNING);
+    return true;
+  }
+
+  function updateThrownPhysics(delta: number): void {
+    const safeDelta = Math.max(0, delta);
+    if (safeDelta <= 0) {
+      return;
+    }
+
+    for (let chipIndex = 0; chipIndex < chips.length; chipIndex += 1) {
+      const chip = chips[chipIndex];
+      if (!chip || !chip.isThrown) {
+        continue;
+      }
+
+      const chipMesh = room.chipMeshes[chipIndex];
+      const body = chipBodies[chipIndex];
+      if (!chipMesh || !body) {
+        continue;
+      }
+
+      stepChipRigidBody(body, room.physicsEnvironment, safeDelta);
+      chipMesh.position.copy(body.position);
+      chipMesh.quaternion.copy(body.quaternion);
+
+      if (!body.isSimulating) {
+        chips[chipIndex] = {
+          ...chip,
+          isThrown: false
+        };
+      }
     }
   }
 
@@ -220,6 +317,17 @@ async function bootstrap(): Promise<void> {
     },
     { passive: false }
   );
+
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.code !== "KeyF" || event.repeat) {
+      return;
+    }
+    if (!player.controls.isLocked) {
+      return;
+    }
+
+    tryThrowTopHeldChip();
+  });
 
   if (typeof window !== "undefined") {
     const testApi = {
@@ -255,6 +363,7 @@ async function bootstrap(): Promise<void> {
 
         return placeHeldChipIntoColumn(topChipIndex, columnIndex);
       },
+      triggerThrowTopChip: (): boolean => tryThrowTopHeldChip(),
       triggerRotateUp: (): boolean => rotateHeldChipsUp(),
       triggerRotateDown: (): boolean => rotateHeldChipsDown(),
       getHeldChipIds: (): string[] =>
@@ -282,6 +391,21 @@ async function bootstrap(): Promise<void> {
         const chipMesh = room.chipMeshes[chipIndex];
         return chipMesh ? chipMesh.position.y : null;
       },
+      getChipPosition: (chipIndex: number): { x: number; y: number; z: number } | null => {
+        const chipMesh = room.chipMeshes[chipIndex];
+        if (!chipMesh) {
+          return null;
+        }
+
+        return {
+          x: chipMesh.position.x,
+          y: chipMesh.position.y,
+          z: chipMesh.position.z
+        };
+      },
+      getChipLinearSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.linearVelocity.length() ?? 0,
+      getChipAngularSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.angularVelocity.length() ?? 0,
+      isChipThrown: (chipIndex: number): boolean => Boolean(chips[chipIndex]?.isThrown),
       getStackCenterYForCount: (stackedCount: number): number =>
         stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount),
       getCameraPositionXZ: (): { x: number; z: number } => ({
@@ -372,6 +496,7 @@ async function bootstrap(): Promise<void> {
         for (let index = 0; index < safeSteps; index += 1) {
           player.move(safeDelta);
           updateHeldObjectPosition(safeDelta);
+          updateThrownPhysics(safeDelta);
         }
       },
       getHeldChipForwardRadius: (): number => HELD_CHIP_FORWARD_RADIUS,
@@ -385,6 +510,7 @@ async function bootstrap(): Promise<void> {
     const delta = clock.getDelta();
     player.move(delta);
     updateHeldObjectPosition(delta);
+    updateThrownPhysics(delta);
     renderer.render(scene, camera);
   }
 
