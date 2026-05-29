@@ -134,4 +134,20 @@ describe("chip rigid body", () => {
 
     expect(body.angularVelocity.length()).toBeLessThan(1e-4);
   });
+
+  it("does not freeze oscillating chip while settling torque is active", () => {
+    const body = createChipRigidBody(
+      new Vector3(0, 0.05, 0),
+      new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 6)
+    );
+    body.isSimulating = true;
+
+    const env = createEnvironment({ tableTopY: -10, tableRadius: 0 });
+
+    for (let i = 0; i < 30; i++) {
+      stepChipRigidBody(body, env, 1 / 60);
+    }
+
+    expect(body.isSimulating).toBe(true);
+  });
 });

@@ -26,6 +26,7 @@ export interface ChipRigidBody {
   isSimulating: boolean;
   restFrames: number;
   lastSurfaceNormal: Vector3 | null;
+  lastSettlingTorqueMagnitude: number;
 }
 
 export interface ThrowTuning {
@@ -46,6 +47,7 @@ const EPSILON = 1e-6;
 const SLEEP_LINEAR_THRESHOLD = 0.2;
 const SLEEP_ANGULAR_THRESHOLD = 0.6;
 const SLEEP_FRAMES = 18;
+const SLEEP_SETTLING_TORQUE_THRESHOLD = 0.0001;
 const SETTLING_TORQUE_STRENGTH = 0.08;
 const SETTLING_LINEAR_SPEED_MAX = 1.2;
 const SETTLING_ANGULAR_SPEED_MAX = 9;
@@ -94,7 +96,8 @@ export function createChipRigidBody(position: Vector3, quaternion: Quaternion): 
     angularDamping: 1.1,
     isSimulating: false,
     restFrames: 0,
-    lastSurfaceNormal: null
+    lastSurfaceNormal: null,
+    lastSettlingTorqueMagnitude: 0
   };
 }
 
@@ -135,6 +138,7 @@ export function setThrownState(
   body.isSimulating = true;
   body.restFrames = 0;
   body.lastSurfaceNormal = null;
+  body.lastSettlingTorqueMagnitude = 0;
 }
 
 export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, delta: number): boolean {
@@ -158,6 +162,7 @@ export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, 
   integrateOrientation(body.quaternion, body.angularVelocity, dt);
 
   body.lastSurfaceNormal = null;
+  body.lastSettlingTorqueMagnitude = 0;
   let hadCollision = false;
 
   hadCollision =
@@ -190,7 +195,8 @@ export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, 
 
     if (
       linearSpeedSq <= SLEEP_LINEAR_THRESHOLD * SLEEP_LINEAR_THRESHOLD &&
-      angularSpeedSq <= SLEEP_ANGULAR_THRESHOLD * SLEEP_ANGULAR_THRESHOLD
+      angularSpeedSq <= SLEEP_ANGULAR_THRESHOLD * SLEEP_ANGULAR_THRESHOLD &&
+      body.lastSettlingTorqueMagnitude <= SLEEP_SETTLING_TORQUE_THRESHOLD
     ) {
       body.restFrames += 1;
       if (body.restFrames >= SLEEP_FRAMES) {
@@ -358,6 +364,7 @@ function applySettlingTorque(body: ChipRigidBody, surfaceNormal: Vector3, dt: nu
   }
 
   const torqueMagnitude = SETTLING_TORQUE_STRENGTH * body.mass * 9.81 * body.radius * misalignment;
+  body.lastSettlingTorqueMagnitude = torqueMagnitude;
   misalignmentVector.multiplyScalar(torqueMagnitude / misalignment);
 
   applyInverseInertiaWorld(body, misalignmentVector, scratchSettlingAngularAccel);
