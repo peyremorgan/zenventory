@@ -411,6 +411,21 @@ async function bootstrap(): Promise<void> {
           z: chipMesh.position.z
         };
       },
+      getAllChipPositions: (): { x: number; y: number; z: number }[] =>
+        room.chipMeshes.map((chipMesh) => ({
+          x: chipMesh.position.x,
+          y: chipMesh.position.y,
+          z: chipMesh.position.z
+        })),
+      getTableMetrics: (): { centerX: number; centerZ: number; radius: number } => ({
+        centerX: room.physicsEnvironment.tableCenterX,
+        centerZ: room.physicsEnvironment.tableCenterZ,
+        radius: room.physicsEnvironment.tableRadius
+      }),
+      getChipMetrics: (): { radius: number; height: number } => ({
+        radius: chipBodies[0]?.radius ?? 0,
+        height: (chipBodies[0]?.halfHeight ?? 0) * 2
+      }),
       getChipLinearSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.linearVelocity.length() ?? 0,
       getChipAngularSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.angularVelocity.length() ?? 0,
       getChipUpAlignment: (chipIndex: number): number | null => {

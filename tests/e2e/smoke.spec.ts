@@ -222,6 +222,48 @@ test("held chip stays in front of wall surface when facing wall up close", async
   expect(result.held.x + result.radius).toBeLessThanOrEqual(result.walls.maxX - 0.01);
 });
 
+test("chips spawn smaller and clustered near table center on green area", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
+
+  const result = await page.evaluate(() => {
+    type Position = { x: number; y: number; z: number };
+    type TestApi = {
+      getAllChipPositions: () => Position[];
+      getTableMetrics: () => { centerX: number; centerZ: number; radius: number };
+      getChipMetrics: () => { radius: number; height: number };
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const positions = api.getAllChipPositions();
+    const table = api.getTableMetrics();
+    const chip = api.getChipMetrics();
+
+    const radialDistances = positions.map((position) =>
+      Math.hypot(position.x - table.centerX, position.z - table.centerZ)
+    );
+
+    return {
+      chip,
+      table,
+      maxRadialDistance: Math.max(...radialDistances),
+      minRadialDistance: Math.min(...radialDistances)
+    };
+  });
+
+  expect(result.chip.radius).toBeCloseTo(0.136, 8);
+  expect(result.chip.height).toBeCloseTo(0.048, 8);
+  expect(result.minRadialDistance).toBeGreaterThanOrEqual(0.8 - 1e-6);
+  expect(result.maxRadialDistance).toBeLessThanOrEqual(1.2 + 1e-6);
+  expect(result.maxRadialDistance + result.chip.radius).toBeLessThanOrEqual(result.table.radius);
+});
+
 test("crosshair expands subtly as more chips are held", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => {

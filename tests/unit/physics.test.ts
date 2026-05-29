@@ -6,6 +6,7 @@ import {
   stepChipRigidBody,
   type PhysicsEnvironment
 } from "../../src/physics";
+import { CHIP_HALF_HEIGHT, CHIP_RADIUS } from "../../src/chipMetrics";
 
 function createEnvironment(overrides: Partial<PhysicsEnvironment> = {}): PhysicsEnvironment {
   return {
@@ -25,6 +26,13 @@ function createEnvironment(overrides: Partial<PhysicsEnvironment> = {}): Physics
 }
 
 describe("chip rigid body", () => {
+  it("uses shared chip dimensions for collision extents", () => {
+    const body = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
+
+    expect(body.radius).toBeCloseTo(CHIP_RADIUS, 10);
+    expect(body.halfHeight).toBeCloseTo(CHIP_HALF_HEIGHT, 10);
+  });
+
   it("sets fixed throw velocity and spin", () => {
     const body = createChipRigidBody(new Vector3(0, 1, 0), new Quaternion());
 
