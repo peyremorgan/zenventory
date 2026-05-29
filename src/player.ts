@@ -1,5 +1,6 @@
 import { Camera, Vector3 } from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+import { clampPositionToRoom } from "./roomBounds";
 
 export interface KeyState {
   forward: boolean;
@@ -48,29 +49,40 @@ export function createPlayer(camera: Camera, clickTarget: HTMLElement): PlayerCo
         return;
       }
 
-      const speed = 3.8;
-      const distance = speed * delta;
-
-      camera.getWorldDirection(FORWARD);
-      FORWARD.y = 0;
-      FORWARD.normalize();
-
-      RIGHT.crossVectors(FORWARD, camera.up).normalize();
-
-      if (keys.forward) {
-        controls.object.position.addScaledVector(FORWARD, distance);
-      }
-      if (keys.backward) {
-        controls.object.position.addScaledVector(FORWARD, -distance);
-      }
-      if (keys.left) {
-        controls.object.position.addScaledVector(RIGHT, -distance);
-      }
-      if (keys.right) {
-        controls.object.position.addScaledVector(RIGHT, distance);
-      }
+      applyMovementStep(camera, controls.object.position, keys, delta);
     }
   };
+}
+
+export function applyMovementStep(
+  camera: Camera,
+  position: Vector3,
+  keys: KeyState,
+  delta: number
+): void {
+  const speed = 3.8;
+  const distance = speed * delta;
+
+  camera.getWorldDirection(FORWARD);
+  FORWARD.y = 0;
+  FORWARD.normalize();
+
+  RIGHT.crossVectors(FORWARD, camera.up).normalize();
+
+  if (keys.forward) {
+    position.addScaledVector(FORWARD, distance);
+  }
+  if (keys.backward) {
+    position.addScaledVector(FORWARD, -distance);
+  }
+  if (keys.left) {
+    position.addScaledVector(RIGHT, -distance);
+  }
+  if (keys.right) {
+    position.addScaledVector(RIGHT, distance);
+  }
+
+  clampPositionToRoom(position);
 }
 
 function setDirectionKeyState(code: string, keys: KeyState, isDown: boolean): void {

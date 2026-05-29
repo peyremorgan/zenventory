@@ -1,6 +1,7 @@
 import { Clock, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
 import { createHud } from "./hud";
-import { createPlayer } from "./player";
+import { applyMovementStep, createPlayer, type KeyState } from "./player";
+import { ROOM_BOUNDS, clampPositionToRoom } from "./roomBounds";
 import { canPlaceChip, canPickChip, placeChip, pickChip, type Chip } from "./sorting";
 import { setupScene } from "./scene";
 import { stackChipCenterY } from "./stacking";
@@ -184,7 +185,36 @@ if (typeof window !== "undefined") {
       return chipMesh ? chipMesh.position.y : null;
     },
     getStackCenterYForCount: (stackedCount: number): number =>
-      stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount)
+      stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount),
+    getCameraPositionXZ: (): { x: number; z: number } => ({
+      x: camera.position.x,
+      z: camera.position.z
+    }),
+    setCameraPositionXZ: (x: number, z: number): { x: number; z: number } => {
+      camera.position.x = x;
+      camera.position.z = z;
+      clampPositionToRoom(camera.position);
+      return {
+        x: camera.position.x,
+        z: camera.position.z
+      };
+    },
+    simulateMoveStep: (input: Partial<KeyState>, delta: number): { x: number; z: number } => {
+      const keys: KeyState = {
+        forward: Boolean(input.forward),
+        backward: Boolean(input.backward),
+        left: Boolean(input.left),
+        right: Boolean(input.right)
+      };
+
+      applyMovementStep(camera, camera.position, keys, delta);
+
+      return {
+        x: camera.position.x,
+        z: camera.position.z
+      };
+    },
+    getRoomBounds: (): typeof ROOM_BOUNDS => ({ ...ROOM_BOUNDS })
   };
 
   (window as unknown as { __zenventoryTestApi?: typeof testApi }).__zenventoryTestApi = testApi;
