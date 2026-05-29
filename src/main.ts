@@ -62,6 +62,7 @@ async function bootstrap(): Promise<void> {
 
   const worldForward = new Vector3();
   const worldRight = new Vector3();
+  const chipAxisScratch = new Vector3();
 
   function stopChipPhysics(chipIndex: number): void {
     const body = chipBodies[chipIndex];
@@ -405,6 +406,15 @@ async function bootstrap(): Promise<void> {
       },
       getChipLinearSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.linearVelocity.length() ?? 0,
       getChipAngularSpeed: (chipIndex: number): number => chipBodies[chipIndex]?.angularVelocity.length() ?? 0,
+      getChipUpAlignment: (chipIndex: number): number | null => {
+        const chipMesh = room.chipMeshes[chipIndex];
+        if (!chipMesh) {
+          return null;
+        }
+
+        chipAxisScratch.set(0, 1, 0).applyQuaternion(chipMesh.quaternion).normalize();
+        return Math.abs(chipAxisScratch.y);
+      },
       isChipThrown: (chipIndex: number): boolean => Boolean(chips[chipIndex]?.isThrown),
       getStackCenterYForCount: (stackedCount: number): number =>
         stackChipCenterY(room.columnStackBaseY, room.chipHeight, stackedCount),

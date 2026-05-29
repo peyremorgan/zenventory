@@ -25,6 +25,7 @@ export interface ChipRigidBody {
   angularDamping: number;
   isSimulating: boolean;
   restFrames: number;
+  lastSurfaceNormal: Vector3 | null;
 }
 
 export interface ThrowTuning {
@@ -37,14 +38,18 @@ export interface ThrowTuning {
 export const DEFAULT_THROW_TUNING: ThrowTuning = {
   throwSpeed: 6.4,
   upBias: 0.2,
-  sideSpin: 18,
-  forwardSpin: 9
+  sideSpin: 14.4,
+  forwardSpin: 7.2
 };
 
 const EPSILON = 1e-6;
 const SLEEP_LINEAR_THRESHOLD = 0.2;
 const SLEEP_ANGULAR_THRESHOLD = 0.6;
 const SLEEP_FRAMES = 18;
+const SETTLING_TORQUE_STRENGTH = 0.08;
+const SETTLING_LINEAR_SPEED_MAX = 1.2;
+const SETTLING_ANGULAR_SPEED_MAX = 9;
+const SETTLING_ALIGNMENT_EPSILON = 1e-3;
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const WORLD_UP = new Vector3(0, 1, 0);
@@ -68,6 +73,9 @@ const scratchQuat = new Quaternion();
 const scratchForward = new Vector3();
 const scratchRight = new Vector3();
 const scratchUp = new Vector3();
+const scratchSettlingAxis = new Vector3();
+const scratchSettlingTorque = new Vector3();
+const scratchSettlingAngularAccel = new Vector3();
 
 export function createChipRigidBody(position: Vector3, quaternion: Quaternion): ChipRigidBody {
   const mass = 0.012;
@@ -85,7 +93,8 @@ export function createChipRigidBody(position: Vector3, quaternion: Quaternion): 
     linearDamping: 0.8,
     angularDamping: 1.1,
     isSimulating: false,
-    restFrames: 0
+    restFrames: 0,
+    lastSurfaceNormal: null
   };
 }
 
@@ -125,6 +134,7 @@ export function setThrownState(
     .addScaledVector(forward, tuning.forwardSpin);
   body.isSimulating = true;
   body.restFrames = 0;
+  body.lastSurfaceNormal = null;
 }
 
 export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, delta: number): boolean {
@@ -147,17 +157,18 @@ export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, 
   body.position.addScaledVector(body.linearVelocity, dt);
   integrateOrientation(body.quaternion, body.angularVelocity, dt);
 
+  body.lastSurfaceNormal = null;
   let hadCollision = false;
 
   hadCollision =
-    resolvePlaneCollision(body, WORLD_UP, env.floorY, body.restitution, body.friction) || hadCollision;
+    resolvePlaneCollision(body, WORLD_UP, env.floorY, body.restitution, body.friction, true) || hadCollision;
 
   const dx = body.position.x - env.tableCenterX;
   const dz = body.position.z - env.tableCenterZ;
   const centerInsideTable = dx * dx + dz * dz <= env.tableRadius * env.tableRadius;
   if (centerInsideTable) {
     hadCollision =
-      resolvePlaneCollision(body, WORLD_UP, env.tableTopY, body.restitution, body.friction) || hadCollision;
+      resolvePlaneCollision(body, WORLD_UP, env.tableTopY, body.restitution, body.friction, true) || hadCollision;
   }
 
   hadCollision =
@@ -168,6 +179,10 @@ export function stepChipRigidBody(body: ChipRigidBody, env: PhysicsEnvironment, 
     resolveWallMaxZ(body, env.wallBounds.maxZ, body.restitution, body.friction) || hadCollision;
   hadCollision =
     resolveWallMinZ(body, env.wallBounds.minZ, body.restitution, body.friction) || hadCollision;
+
+  if (body.lastSurfaceNormal) {
+    applySettlingTorque(body, body.lastSurfaceNormal, dt);
+  }
 
   if (hadCollision) {
     const linearSpeedSq = body.linearVelocity.lengthSq();
@@ -219,7 +234,8 @@ function resolvePlaneCollision(
   normal: Vector3,
   planeOffset: number,
   restitution: number,
-  friction: number
+  friction: number,
+  trackSurface: boolean = false
 ): boolean {
   const extent = cylinderExtentAlongNormal(body, normal);
   const projected = body.position.dot(normal);
@@ -230,6 +246,10 @@ function resolvePlaneCollision(
 
   const penetration = planeOffset - minProjected;
   body.position.addScaledVector(normal, penetration);
+
+  if (trackSurface && body.lastSurfaceNormal === null) {
+    body.lastSurfaceNormal = normal;
+  }
 
   scratchContact.copy(normal).multiplyScalar(-extent).add(body.position);
   applyCollisionImpulse(body, normal, scratchContact, restitution, friction);
@@ -320,6 +340,28 @@ function cylinderExtentAlongNormal(body: ChipRigidBody, normal: Vector3): number
   const dot = Math.max(-1, Math.min(1, axis.dot(normal)));
   const radial = Math.sqrt(Math.max(0, 1 - dot * dot));
   return Math.abs(dot) * body.halfHeight + radial * body.radius;
+}
+
+function applySettlingTorque(body: ChipRigidBody, surfaceNormal: Vector3, dt: number): void {
+  if (
+    body.linearVelocity.lengthSq() > SETTLING_LINEAR_SPEED_MAX * SETTLING_LINEAR_SPEED_MAX ||
+    body.angularVelocity.lengthSq() > SETTLING_ANGULAR_SPEED_MAX * SETTLING_ANGULAR_SPEED_MAX
+  ) {
+    return;
+  }
+
+  const axis = scratchSettlingAxis.copy(AXIS_Y).applyQuaternion(body.quaternion).normalize();
+  const misalignmentVector = scratchSettlingTorque.crossVectors(axis, surfaceNormal);
+  const misalignment = misalignmentVector.length();
+  if (misalignment <= SETTLING_ALIGNMENT_EPSILON) {
+    return;
+  }
+
+  const torqueMagnitude = SETTLING_TORQUE_STRENGTH * body.mass * 9.81 * body.radius * misalignment;
+  misalignmentVector.multiplyScalar(torqueMagnitude / misalignment);
+
+  applyInverseInertiaWorld(body, misalignmentVector, scratchSettlingAngularAccel);
+  body.angularVelocity.addScaledVector(scratchSettlingAngularAccel, dt);
 }
 
 function applyCollisionImpulse(
