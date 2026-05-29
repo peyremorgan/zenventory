@@ -1,4 +1,4 @@
-import { Clock, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
+import { Clock, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
 import { createHud } from "./hud";
 import { applyMovementStep, createPlayer, type KeyState } from "./player";
 import { ROOM_BOUNDS, clampPositionToRoom, toWallInnerBounds } from "./roomBounds";
@@ -326,6 +326,33 @@ async function bootstrap(): Promise<void> {
           y: heldMesh.position.y,
           z: heldMesh.position.z
         };
+      },
+      getTableMaterialSamples: (): Record<string, { r: number; g: number; b: number }> => {
+        const samples: Record<string, { r: number; g: number; b: number }> = {};
+        const tableMaterialNames = new Set(["cloth", "cushion", "wood"]);
+
+        scene.traverse((node) => {
+          if (!(node instanceof Mesh)) {
+            return;
+          }
+
+          const materials = Array.isArray(node.material) ? node.material : [node.material];
+          for (const material of materials) {
+            if (!(material.name in samples) && tableMaterialNames.has(material.name)) {
+              const color = (
+                material as unknown as {
+                  color?: { r: number; g: number; b: number };
+                }
+              ).color;
+
+              if (color) {
+                samples[material.name] = { r: color.r, g: color.g, b: color.b };
+              }
+            }
+          }
+        });
+
+        return samples;
       },
       setCameraLookDirectionXZ: (x: number, z: number): void => {
         const length = Math.hypot(x, z);

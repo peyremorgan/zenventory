@@ -234,19 +234,6 @@ async function loadTableModel(): Promise<Group> {
 
     node.castShadow = false;
     node.receiveShadow = true;
-    if (!(node.material instanceof MeshStandardMaterial)) {
-      return;
-    }
-
-    if (node.material.name === "cloth") {
-      node.material.color.set(0x195f2d);
-      node.material.roughness = 0.78;
-    }
-
-    if (node.material.name === "wood") {
-      node.material.color.set(0x3d2f23);
-      node.material.roughness = 0.72;
-    }
   });
 
   return model;

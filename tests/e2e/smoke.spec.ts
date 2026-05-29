@@ -221,3 +221,52 @@ test("held chip stays in front of wall surface when facing wall up close", async
 
   expect(result.held.x + result.radius).toBeLessThanOrEqual(result.walls.maxX - 0.01);
 });
+
+test("table materials use distinct MTL-driven colors", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => {
+    return Boolean((window as Window & { __zenventoryTestApi?: unknown }).__zenventoryTestApi);
+  });
+
+  const result = await page.evaluate(() => {
+    type MaterialSample = { r: number; g: number; b: number };
+    type TestApi = {
+      isUsingExternalAssets: () => boolean;
+      getTableMaterialSamples: () => Record<string, MaterialSample>;
+    };
+
+    const api = (window as Window & { __zenventoryTestApi?: TestApi }).__zenventoryTestApi;
+    if (!api) {
+      throw new Error("Missing __zenventoryTestApi");
+    }
+
+    const samples = api.getTableMaterialSamples();
+    return {
+      usingExternalAssets: api.isUsingExternalAssets(),
+      cloth: samples.cloth,
+      cushion: samples.cushion,
+      wood: samples.wood
+    };
+  });
+
+  expect(result.usingExternalAssets).toBe(true);
+  expect(result.cloth).toBeDefined();
+  expect(result.cushion).toBeDefined();
+  expect(result.wood).toBeDefined();
+
+  if (!result.cloth || !result.cushion || !result.wood) {
+    return;
+  }
+
+  expect(result.cloth.g).toBeGreaterThan(result.cloth.r);
+  expect(result.cloth.g).toBeGreaterThan(result.cloth.b);
+
+  expect(result.cushion.r).toBeGreaterThan(result.cushion.g);
+  expect(result.cushion.g).toBeGreaterThan(result.cushion.b);
+
+  expect(result.wood.r).toBeGreaterThan(result.wood.g);
+  expect(result.wood.g).toBeGreaterThan(result.wood.b);
+
+  expect(result.cloth.g).toBeGreaterThan(result.wood.g);
+  expect(result.cushion.r).toBeGreaterThan(result.wood.r);
+});
